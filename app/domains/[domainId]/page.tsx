@@ -49,16 +49,16 @@ async function fetchParentClustersByIds(clusterIds: string[]): Promise<Cluster[]
 
 export const revalidate = 3600;
 
+// On Vercel: return [] so domain pages are rendered on-demand (avoids build timeouts and single-domain failures).
+// For static export (non-Vercel): return one placeholder so the route is valid.
 export async function generateStaticParams() {
+  if (process.env.VERCEL) return [];
   try {
     const domainIds = await getDomainIds();
-    
     if (domainIds.length > 0) {
       console.log(`Generated static params for ${domainIds.length} domains`);
       return domainIds.map((id) => ({ domainId: id }));
     }
-    
-    console.warn("No domain IDs found from Airtable API");
     return [];
   } catch (error) {
     console.error("Error generating static params:", error);
