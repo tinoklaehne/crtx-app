@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getAllRadars, fetchAllTrendRecordsForRadars, getTrendsForRadarFromRecords } from "@/lib/airtable/radars";
 import { getClusters } from "@/lib/airtable/general";
 import { RadarsPage } from "../RadarsPage";
@@ -51,9 +52,23 @@ export default async function RadarsRoute() {
   }
 
   return (
-    <RadarsPage
-      initialRadars={radars || []}
-      radarDetails={radarDetails}
-    />
+    <Suspense fallback={<RadarsPageFallback />}>
+      <RadarsPage
+        initialRadars={radars || []}
+        radarDetails={radarDetails}
+      />
+    </Suspense>
+  );
+}
+
+function RadarsPageFallback() {
+  return (
+    <div className="flex h-screen bg-background text-foreground">
+      <div className="flex-1 overflow-auto p-6 flex items-center justify-center">
+        <div className="max-w-md text-center text-muted-foreground">
+          <p className="text-lg">Loading radars...</p>
+        </div>
+      </div>
+    </div>
   );
 }

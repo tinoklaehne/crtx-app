@@ -3,7 +3,8 @@ import { GeneralPage } from "./GeneralPage";
 import type { Cluster } from "@/app/types/clusters";
 import type { Trend } from "@/app/types/trends";
 
-export const dynamic = "force-static";
+// On Vercel: render on-demand to avoid build-time Airtable errors (e.g. UNKNOWN_FIELD_NAME if base schema changed).
+export const dynamic = process.env.VERCEL ? "force-dynamic" : "force-static";
 export const revalidate = 3600;
 
 export default async function Page() {
