@@ -26,8 +26,13 @@ function getNumericField(record: any, fieldName: string): number | undefined {
 function getIconAiUrl(record: any): string | undefined {
   const val = getField(record, 'Icon AI') ?? getField(record, 'IconAI');
   if (typeof val === 'string' && val.startsWith('http')) return val;
-  if (Array.isArray(val) && val.length > 0 && val[0]?.url) return val[0].url;
-  if (val && typeof val === 'object' && val.url) return val.url;
+  if (Array.isArray(val) && val.length > 0) {
+    const first = val[0] as { url?: string } | null;
+    if (first?.url) return first.url;
+  }
+  if (val && typeof val === 'object' && 'url' in val && typeof (val as { url: string }).url === 'string') {
+    return (val as { url: string }).url;
+  }
   return undefined;
 }
 
