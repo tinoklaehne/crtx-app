@@ -1,0 +1,138 @@
+"use client";
+
+import { useState } from "react";
+import { Navbar } from "@/app/components/layout/Navbar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DomainDashboard } from "./domains/DomainDashboard";
+import { DomainContentList } from "./domains/DomainContentList";
+import { DomainTrendsView } from "./domains/DomainTrendsView";
+import { DomainsSidepanel } from "./domains/DomainsSidepanel";
+import type { BusinessDomain } from "@/app/types/businessDomains";
+import type { DomainTabContent, DomainTab } from "@/app/types/domainContent";
+import type { Trend } from "@/app/types/trends";
+import type { Cluster } from "@/app/types/clusters";
+
+interface DomainDetailPageProps {
+  domain: BusinessDomain;
+  content: DomainTabContent;
+  trends?: Trend[];
+  clusters?: Cluster[];
+  allDomains?: BusinessDomain[];
+}
+
+export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [] }: DomainDetailPageProps) {
+  const [activeTab, setActiveTab] = useState<DomainTab>("now");
+
+  const getActiveTabItems = () => {
+    switch (activeTab) {
+      case "now":
+        return content.now;
+      case "new":
+        return content.new;
+      case "next":
+        return content.next;
+      default:
+        return content.now;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-background text-foreground">
+      <Navbar />
+      {/* Show DomainsSidepanel for all tabs */}
+      {allDomains.length > 0 && (
+        <DomainsSidepanel domains={allDomains} currentDomainId={domain.id} />
+      )}
+      <div className="flex-1 overflow-auto p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Domain Header */}
+          <div className="mb-8">
+            <div className="flex items-start gap-4 mb-4">
+              {domain.iconUrl && (
+                <img 
+                  src={domain.iconUrl} 
+                  alt={domain.name}
+                  className="w-12 h-12"
+                />
+              )}
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-4xl font-bold">{domain.name}</h1>
+                  {domain.status && (
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${
+                        domain.status.toLowerCase() === 'hot'
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                      }`}
+                    >
+                      {domain.status}
+                    </span>
+                  )}
+                </div>
+                {domain.description && (
+                  <p className="text-lg text-muted-foreground">{domain.description}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Key Metrics */}
+            <div className="flex gap-6 mt-6">
+              {domain.signalsMonth !== undefined && (
+                <div>
+                  <div className="text-sm text-muted-foreground">Signals (Month)</div>
+                  <div className="text-2xl font-bold">{domain.signalsMonth.toLocaleString()}</div>
+                </div>
+              )}
+              {domain.signalsTotal !== undefined && (
+                <div>
+                  <div className="text-sm text-muted-foreground">Signals (Total)</div>
+                  <div className="text-2xl font-bold">{domain.signalsTotal.toLocaleString()}</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="mb-8">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DomainTab)} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="now">Now</TabsTrigger>
+                <TabsTrigger value="new">New</TabsTrigger>
+                <TabsTrigger value="next">Next</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {/* Dashboard - Only show for Now tab */}
+          {activeTab === "now" && (
+            <div className="mb-8">
+              <DomainDashboard items={getActiveTabItems()} />
+            </div>
+          )}
+
+          {/* Content based on active tab */}
+          {activeTab === "now" && (
+            <DomainContentList items={getActiveTabItems()} />
+          )}
+          
+          {activeTab === "new" && trends.length > 0 && (
+            <DomainTrendsView trends={trends} clusters={clusters} />
+          )}
+          
+          {activeTab === "new" && trends.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No trends available for this domain.</p>
+            </div>
+          )}
+          
+          {activeTab === "next" && (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Next section coming soon.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

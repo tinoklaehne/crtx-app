@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Enable static export for Netlify deployment
-  output: 'export',
+  // Static export only when not on Vercel (Vercel needs serverless so [radarId] can render on-demand and build stays under timeout)
+  ...(process.env.VERCEL ? {} : { output: 'export' }),
   trailingSlash: true,
   images: { 
     unoptimized: true,

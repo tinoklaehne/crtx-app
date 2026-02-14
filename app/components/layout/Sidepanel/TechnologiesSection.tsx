@@ -36,9 +36,35 @@ export function TechnologiesSection({
   }, [onClusterSelect]);
 
   // Group technologies by cluster
+  // First, try to match by clusterId, then by taxonomyId, then create an "Unclustered" group
   const groupedTechnologies = filteredTechnologies.reduce((acc, tech) => {
-    const cluster = clusters.find(c => c.id === tech.clusterId);
-    if (!cluster) return acc;
+    // Try to find cluster by clusterId first
+    let cluster = clusters.find(c => c.id === tech.clusterId);
+    
+    // If not found, try taxonomyId
+    if (!cluster && tech.taxonomyId) {
+      cluster = clusters.find(c => c.id === tech.taxonomyId);
+    }
+    
+    // If still not found, create or use "Unclustered" group
+    if (!cluster) {
+      const unclusteredId = 'unclustered';
+      if (!acc.has(unclusteredId)) {
+        acc.set(unclusteredId, {
+          cluster: {
+            id: unclusteredId,
+            name: 'Unclustered',
+            description: 'Trends without cluster assignment',
+            imageUrl: '',
+            colorCode: '#888888',
+            domain: tech.domain || 'Technology' as any,
+            universe: tech.universe || 'General',
+          } as Cluster,
+          technologies: []
+        });
+      }
+      cluster = acc.get(unclusteredId)!.cluster;
+    }
 
     if (!acc.has(cluster.id)) {
       acc.set(cluster.id, { cluster, technologies: [] });
@@ -98,16 +124,16 @@ export function TechnologiesSection({
                         onClick={() => onTechnologySelect(tech)}
                       >
                         <div className="flex items-center justify-between px-6">
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             <span 
-                              className="text-sm w-8 tabular-nums"
+                              className="text-sm w-8 tabular-nums flex-shrink-0"
                               style={{ color: cluster.colorCode }}
                             >
                               {index.toString().padStart(2, '0')}
                             </span>
-                            <h4 className="font-medium">{tech.name}</h4>
+                            <h4 className="font-medium truncate">{tech.name}</h4>
                           </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
                             {getReadinessLevel(tech, nodePositioning)}
                           </div>
                         </div>

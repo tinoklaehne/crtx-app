@@ -34,10 +34,11 @@ interface RadarVisualizationProps {
   onClusterSelect: (cluster: Cluster | null) => void;
   nodePositioning: NodePositioning;
   onNodePositioningChange: (positioning: NodePositioning) => void;
-  view: "radar" | "matrix";
-  onViewChange?: (view: "radar" | "matrix") => void;
+  view: "radar" | "matrix" | "kanban";
+  onViewChange?: (view: "radar" | "matrix" | "kanban") => void;
   clusterType?: "parent" | "taxonomy" | "domain";
   onClusterTypeChange?: (type: "parent" | "taxonomy" | "domain") => void;
+  onKanbanView?: () => React.ReactNode;
 }
 
 export function RadarVisualization({ 
@@ -50,7 +51,8 @@ export function RadarVisualization({
   view,
   onViewChange = () => {},
   clusterType = "parent",
-  onClusterTypeChange = (_type: "parent" | "taxonomy" | "domain") => {}
+  onClusterTypeChange = (_type: "parent" | "taxonomy" | "domain") => {},
+  onKanbanView
 }: RadarVisualizationProps) {
   const [hoveredTech, setHoveredTech] = useState<Trend | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -103,6 +105,18 @@ export function RadarVisualization({
   // Check if we have any data to display
   const hasData = positions.length > 0 && positions.some(pos => pos.technologies.length > 0);
 
+  // Handle kanban view
+  if (view === "kanban" && onKanbanView) {
+    return (
+      <div className="relative flex-1 bg-background overflow-hidden">
+        <ViewToggle view={view} onChange={onViewChange} />
+        <div className="h-full overflow-auto">
+          {onKanbanView()}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex-1 bg-background overflow-hidden">
       <ViewToggle view={view} onChange={onViewChange} />
@@ -114,7 +128,6 @@ export function RadarVisualization({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="parent">Parent Relationship</SelectItem>
-            <SelectItem value="taxonomy">Taxonomy</SelectItem>
             <SelectItem value="domain">Domain</SelectItem>
           </SelectContent>
         </Select>
@@ -210,9 +223,13 @@ export function RadarVisualization({
       </motion.div>
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 rounded-lg bg-background/50 backdrop-blur border">
-        <Select value={nodePositioning} onValueChange={onNodePositioningChange}>
-          <SelectTrigger className="w-[180px] border-0 bg-transparent">
-            <SelectValue />
+        <Select value={nodePositioning || "trl"} onValueChange={onNodePositioningChange}>
+          <SelectTrigger className="w-[200px] border-0 bg-transparent">
+            <SelectValue placeholder="Technology Readiness Level">
+              {nodePositioning === "trl" && "Technology Readiness Level"}
+              {nodePositioning === "brl" && "Business Readiness Level"}
+              {nodePositioning === "horizon" && "Trend Horizon"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="trl">Technology Readiness Level</SelectItem>

@@ -17,8 +17,9 @@ interface MatrixVisualizationProps {
   onClusterSelect: (cluster: Cluster | null) => void;
   nodePositioning: NodePositioning;
   onNodePositioningChange: (positioning: NodePositioning) => void;
-  view: "radar" | "matrix";
-  onViewChange?: (view: "radar" | "matrix") => void;
+  view: "radar" | "matrix" | "kanban";
+  onViewChange?: (view: "radar" | "matrix" | "kanban") => void;
+  onKanbanView?: () => React.ReactNode;
 }
 
 interface AxisConfig {
@@ -40,7 +41,8 @@ export function MatrixVisualization({
   nodePositioning,
   onNodePositioningChange,
   view,
-  onViewChange = () => {}
+  onViewChange = () => {},
+  onKanbanView
 }: MatrixVisualizationProps) {
   const [hoveredTech, setHoveredTech] = useState<Trend | null>(null);
   const [xAxis, setXAxis] = useState<NodePositioning>("trl");
@@ -50,6 +52,23 @@ export function MatrixVisualization({
   const [y, setY] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const { selectedFilters, selectedCluster } = useFilters();
+
+  if (view === "kanban") {
+    return (
+      <div className="relative flex-1 bg-background overflow-hidden">
+        <ViewToggle view={view} onChange={onViewChange} />
+        <div className="h-full overflow-auto flex items-center justify-center p-8">
+          {onKanbanView ? (
+            onKanbanView()
+          ) : (
+            <p className="text-muted-foreground text-center">
+              Switch to Radar view and select Kanban from the view toggle.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // Create stable jitter values for each technology
   const jitterValues = useRef<Map<string, { x: number; y: number }>>(new Map());

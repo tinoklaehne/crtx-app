@@ -1,17 +1,41 @@
 import Airtable from 'airtable';
 
 // Centralized retry mechanism with exponential backoff
-export async function fetchWithRetry<T>(operation: () => Promise<T>, retries = 10, baseDelay = 5000): Promise<T> {
+export async function fetchWithRetry<T>(operation: () => Promise<T>, retries = 3, baseDelay = 2000): Promise<T> {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       return await operation();
-    } catch (error) {
-      if (attempt === retries - 1) throw error;
+    } catch (error: any) {
+      // Robust error extraction (Airtable can throw null or odd shapes)
+      let errorMessage =
+        (typeof error?.error === 'string' && error.error) ||
+        (typeof error?.message === 'string' && error.message) ||
+        (typeof error?.toString === 'function' && error.toString()) ||
+        (error != null && typeof error === 'object' && JSON.stringify(error)) ||
+        '';
+      if (errorMessage === 'null' || errorMessage === '{}' || !errorMessage) {
+        errorMessage = 'Airtable request failed (network or server error)';
+      }
+      const statusCode = error?.statusCode ?? error?.status ?? 'unknown';
+      const errorType = error?.error ?? error?.type ?? 'unknown';
+
+      // Log full error details for debugging (avoid logging huge payloads)
+      console.error(`Airtable request failed (attempt ${attempt + 1}/${retries}):`, errorMessage, {
+        statusCode,
+        errorType,
+        errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
+      });
       
-      // Exponential backoff with jitter
+      if (attempt === retries - 1) {
+        const finalError = new Error(`Airtable request failed after ${retries} attempts: ${errorMessage}`);
+        (finalError as any).originalError = error;
+        (finalError as any).statusCode = statusCode;
+        throw finalError;
+      }
+
+      // Exponential backoff with jitter; longer base for rate limits
       const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
-      console.log(`Airtable request failed (attempt ${attempt + 1}/${retries}), retrying in ${Math.round(delay)}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   throw new Error('All retries failed');
@@ -70,7 +94,22 @@ export function getBase() {
 }
 
 export function getField<T>(record: any, field: string): T | null {
-  return record.get(field) || null;
+  try {
+    // Try record.get() first (standard Airtable API)
+    if (typeof record.get === 'function') {
+      const value = record.get(field);
+      if (value !== undefined && value !== null) {
+        return value as T;
+      }
+    }
+    // Fallback to direct field access
+    if (record.fields && record.fields[field] !== undefined) {
+      return record.fields[field] as T;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
 }
 
 export function normalizeDomain(domain: string): string {

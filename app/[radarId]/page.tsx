@@ -1,29 +1,17 @@
 import { RadarPage } from "./RadarPage";
-import { getRadarIds, getRadar } from "@/lib/airtable/radars";
-import { getClusters, getTechnologies } from "@/lib/airtable/general";
+import { getRadar, getAllRadars, getTrendsForRadar } from "@/lib/airtable/radars";
+import { getClusters } from "@/lib/airtable/general";
 import { notFound } from "next/navigation";
 import type { Cluster } from "@/app/types/clusters";
 import type { Trend } from "@/app/types/trends";
 import type { Radar } from "@/app/types/radars";
 
-// Use dynamic rendering to avoid build-time data fetching issues
 export const revalidate = 3600;
 
+// Return empty so we don't pre-render 100+ radar pages at build (avoids Airtable rate limits and 60s timeouts on Vercel).
+// Radar detail is available via /radars?radar=<id>. On Vercel (without output: 'export'), /recXXX also works on-demand.
 export async function generateStaticParams() {
-  try {
-    const radarIds = await getRadarIds();
-    
-    if (radarIds.length > 0) {
-      console.log(`Generated static params for ${radarIds.length} radars`);
-      return radarIds.map((id) => ({ radarId: id }));
-    }
-    
-    console.warn("No radar IDs found from Airtable API");
-    return [];
-  } catch (error) {
-    console.error("Error generating static params:", error);
-    return [];
-  }
+  return [];
 }
 
 export default async function Page(props: any) {
@@ -38,6 +26,7 @@ export default async function Page(props: any) {
   let initialRadar: Radar | null = null;
   let initialTechnologies: Trend[] = [];
   let initialClusters: Cluster[] = [];
+  let allRadars: Radar[] = [];
   let isLoading: boolean = false;
   let error: string | null = null;
 
@@ -58,30 +47,26 @@ export default async function Page(props: any) {
       | "domain";
     const universe = initialRadar.type === "Travel" ? "Travel" : "General";
 
-    console.log(`Fetching clusters and technologies for ${clusterType} cluster in ${universe} universe`);
+    console.log(`Fetching clusters and trends (REL_Trends) for radar ${initialRadar.name}`);
 
-    const [clustersData, technologiesData] = await Promise.all([
+    const [clustersData, technologiesData, radarsList] = await Promise.all([
       getClusters(clusterType, universe),
-      getTechnologies(clusterType, universe),
+      getTrendsForRadar(initialRadar),
+      getAllRadars().catch(() => []),
     ]);
+    allRadars = radarsList;
 
-    console.log(`Found ${clustersData.length} clusters and ${technologiesData.length} technologies`);
+    console.log(`Found ${clustersData.length} clusters and ${technologiesData.length} trends for this radar`);
 
     if (!clustersData.length) {
       error = "No clusters found";
     } else {
-      const filteredTechnologies = technologiesData.filter((tech) =>
-        initialRadar!.trends.includes(tech.id)
-      );
-
-      console.log(`Filtered to ${filteredTechnologies.length} technologies for this radar`);
-
       const activeClusters = clustersData.filter((cluster) =>
-        filteredTechnologies.some((tech) => tech.clusterId === cluster.id)
+        technologiesData.some((tech) => tech.clusterId === cluster.id)
       );
 
       initialClusters = activeClusters;
-      initialTechnologies = filteredTechnologies;
+      initialTechnologies = technologiesData;
 
       console.log(`Final result: ${initialClusters.length} clusters and ${initialTechnologies.length} technologies`);
     }
@@ -104,6 +89,7 @@ export default async function Page(props: any) {
     <RadarPage
       radarId={radarId}
       initialRadar={initialRadar}
+      initialRadars={allRadars}
       initialTechnologies={initialTechnologies}
       initialClusters={initialClusters}
       isLoading={isLoading}

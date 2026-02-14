@@ -5,9 +5,11 @@ import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "../components/layout/Navbar";
+import { RadarsSidepanel } from "../components/radar/RadarsSidepanel";
 import { Sidepanel } from "../components/layout/Sidepanel";
 import { RadarVisualization } from "../components/radar/RadarVisualization";
 import { MatrixVisualization } from "../components/matrix/MatrixVisualization";
+import { TrendsKanbanView } from "../components/domains/TrendsKanbanView";
 import { useRadarStore } from "@/app/store/radarStore";
 import { useFilters } from "@/app/contexts/FilterContext";
 import type { Cluster } from "@/app/types/clusters";
@@ -18,6 +20,7 @@ import type { NodePositioning } from "@/app/types";
 interface RadarPageProps {
   radarId?: string;
   initialRadar?: Radar | null;
+  initialRadars?: Radar[];
   initialTechnologies: Trend[];
   initialClusters: Cluster[];
   isLoading: boolean;
@@ -27,15 +30,17 @@ interface RadarPageProps {
 export function RadarPage({ 
   radarId, 
   initialRadar, 
+  initialRadars = [], 
   initialTechnologies, 
   initialClusters, 
   isLoading: initialLoading, 
   error: initialError 
 }: RadarPageProps) {
   const [nodePositioning, setNodePositioning] = useState<NodePositioning>("trl");
-  const [viewMode, setViewMode] = useState<"radar" | "matrix">("radar");
+  const [viewMode, setViewMode] = useState<"radar" | "matrix" | "kanban">("radar");
   const [clusterType, setClusterType] = useState<"parent" | "taxonomy" | "domain">("parent");
   const [radar, setRadar] = useState<Radar | null>(initialRadar || null);
+  const [radars] = useState<Radar[]>(initialRadars);
 
   const {
     technologies,
@@ -147,6 +152,7 @@ export function RadarPage({
         onViewChange={setActiveView}
         radarName={radar?.name}
       />
+      <RadarsSidepanel radars={radars} currentRadarId={radarId} />
       <Sidepanel
         clusters={clusters}
         technologies={technologies}
@@ -172,6 +178,7 @@ export function RadarPage({
           onNodePositioningChange={setNodePositioning}
           view={viewMode}
           onViewChange={setViewMode}
+          onKanbanView={() => <TrendsKanbanView trends={technologies} onTrendSelect={handleTechnologySelect} />}
         />
       ) : (
         <RadarVisualization
@@ -185,6 +192,7 @@ export function RadarPage({
           onClusterTypeChange={handleClusterTypeChange}
           view={viewMode}
           onViewChange={setViewMode}
+          onKanbanView={() => <TrendsKanbanView trends={technologies} onTrendSelect={handleTechnologySelect} />}
         />
       )}
     </div>
