@@ -13,9 +13,15 @@ export interface BusinessDomain {
   signalsQuarter?: number;
   icon?: string;
   iconUrl?: string;
+  /** From Airtable "Icon AI" – white PNG on transparent, for sidebar */
+  iconAi?: string;
   imageUrl?: string;
   image?: AirtableAttachment[];
   colorCode?: string;
+  /** From Airtable "Hierarchy" – e.g. "Sub-Area" for list/sidepanel filter */
+  hierarchy?: string;
+  /** From Airtable "Keywords" – for tooltip */
+  keywords?: string | string[];
   // Additional fields that may exist in Airtable
   [key: string]: any;
 }

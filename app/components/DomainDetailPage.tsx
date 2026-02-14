@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { Info } from "lucide-react";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DomainDashboard } from "./domains/DomainDashboard";
 import { DomainContentList } from "./domains/DomainContentList";
 import { DomainTrendsView } from "./domains/DomainTrendsView";
@@ -19,6 +26,12 @@ interface DomainDetailPageProps {
   trends?: Trend[];
   clusters?: Cluster[];
   allDomains?: BusinessDomain[];
+}
+
+function formatKeywords(keywords: BusinessDomain["keywords"]): string {
+  if (!keywords) return "";
+  if (Array.isArray(keywords)) return keywords.filter(Boolean).join(", ");
+  return String(keywords).trim();
 }
 
 export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [] }: DomainDetailPageProps) {
@@ -49,17 +62,17 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
           {/* Domain Header */}
           <div className="mb-8">
             <div className="flex items-start gap-4 mb-4">
-              {domain.iconUrl && (
+              {(domain.iconAi ?? domain.iconUrl) && (
                 <Image
-                  src={domain.iconUrl}
-                  alt={domain.name}
+                  src={domain.iconAi ?? domain.iconUrl!}
+                  alt=""
                   width={48}
                   height={48}
-                  className="w-12 h-12"
+                  className="w-12 h-12 flex-shrink-0 object-contain"
                 />
               )}
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h1 className="text-4xl font-bold">{domain.name}</h1>
                   {domain.status && (
                     <span
@@ -72,27 +85,34 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
                       {domain.status}
                     </span>
                   )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help text-muted-foreground hover:text-foreground">
+                          <Info className="h-5 w-5" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-sm p-4 space-y-2 text-left">
+                        {domain.description && (
+                          <div>
+                            <div className="font-semibold text-foreground mb-1">Description</div>
+                            <p className="text-sm text-muted-foreground">{domain.description}</p>
+                          </div>
+                        )}
+                        {formatKeywords(domain.keywords) && (
+                          <div>
+                            <div className="font-semibold text-foreground mb-1">Keywords</div>
+                            <p className="text-sm text-muted-foreground">{formatKeywords(domain.keywords)}</p>
+                          </div>
+                        )}
+                        {!domain.description && !formatKeywords(domain.keywords) && (
+                          <p className="text-sm text-muted-foreground">No description or keywords.</p>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-                {domain.description && (
-                  <p className="text-lg text-muted-foreground">{domain.description}</p>
-                )}
               </div>
-            </div>
-
-            {/* Key Metrics */}
-            <div className="flex gap-6 mt-6">
-              {domain.signalsMonth !== undefined && (
-                <div>
-                  <div className="text-sm text-muted-foreground">Signals (Month)</div>
-                  <div className="text-2xl font-bold">{domain.signalsMonth.toLocaleString()}</div>
-                </div>
-              )}
-              {domain.signalsTotal !== undefined && (
-                <div>
-                  <div className="text-sm text-muted-foreground">Signals (Total)</div>
-                  <div className="text-2xl font-bold">{domain.signalsTotal.toLocaleString()}</div>
-                </div>
-              )}
             </div>
           </div>
 

@@ -154,12 +154,7 @@ export function DomainsListPage({ initialDomains }: DomainsListPageProps) {
       )}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold mb-2">Domains</h1>
-            <p className="text-muted-foreground">Browse business areas and explore insights, trends, and data.</p>
-          </div>
-
-          <div className="mb-6 flex gap-4">
+          <div className="mb-4 flex gap-4">
             <div className="flex-1">
               <Input
                 placeholder="Search domains..."

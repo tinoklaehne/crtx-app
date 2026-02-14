@@ -22,6 +22,15 @@ function getNumericField(record: any, fieldName: string): number | undefined {
   return undefined;
 }
 
+// Icon AI: Airtable can store URL string or attachment(s). Return first URL.
+function getIconAiUrl(record: any): string | undefined {
+  const val = getField(record, 'Icon AI') ?? getField(record, 'IconAI');
+  if (typeof val === 'string' && val.startsWith('http')) return val;
+  if (Array.isArray(val) && val.length > 0 && val[0]?.url) return val[0].url;
+  if (val && typeof val === 'object' && val.url) return val.url;
+  return undefined;
+}
+
 // Fetch all business domains from taxonomy table
 export async function getAllDomains(): Promise<BusinessDomain[]> {
   try {
@@ -45,9 +54,12 @@ export async function getAllDomains(): Promise<BusinessDomain[]> {
       signalsQuarter: getNumericField(record, 'Total Actions Quarter') ?? undefined,
       icon: getField(record, 'Icon') || undefined,
       iconUrl: getField(record, 'IconUrl') || undefined,
+      iconAi: getIconAiUrl(record),
       imageUrl: getField(record, 'ImageUrl') || undefined,
       image: getField(record, 'Image') || undefined,
       colorCode: getField(record, 'ColorCode') || undefined,
+      hierarchy: getField(record, 'Hierarchy') || undefined,
+      keywords: getField(record, 'Keywords') || undefined,
     }));
   } catch (error) {
     console.error('Error fetching domains:', error);
@@ -76,9 +88,12 @@ export async function getDomain(id: string): Promise<BusinessDomain | null> {
       signalsQuarter: getNumericField(record, 'Total Actions Quarter') ?? undefined,
       icon: getField(record, 'Icon') || undefined,
       iconUrl: getField(record, 'IconUrl') || undefined,
+      iconAi: getIconAiUrl(record),
       imageUrl: getField(record, 'ImageUrl') || undefined,
       image: getField(record, 'Image') || undefined,
       colorCode: getField(record, 'ColorCode') || undefined,
+      hierarchy: getField(record, 'Hierarchy') || undefined,
+      keywords: getField(record, 'Keywords') || undefined,
     };
   } catch (error: any) {
     if (error.error === 'NOT_FOUND' || error.statusCode === 404) {
@@ -103,10 +118,11 @@ function buildMomentumFromDomainFields(domain: BusinessDomain): MomentumDataPoin
   ];
 }
 
-/** Fetch all domains with momentum from domain table columns (Total Actions Month, Quarter, Total). */
+/** Fetch all domains with momentum; only returns Hierarchy === "Sub-Area" for list/sidepanel. */
 export async function getDomainsWithMomentum(): Promise<DomainWithMomentum[]> {
   const domains = await getAllDomains();
-  return domains.map(domain => ({
+  const subAreaOnly = domains.filter(d => (d.hierarchy || '').trim() === 'Sub-Area');
+  return subAreaOnly.map(domain => ({
     ...domain,
     momentumData: buildMomentumFromDomainFields(domain),
   }));

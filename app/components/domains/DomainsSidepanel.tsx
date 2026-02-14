@@ -59,15 +59,15 @@ export function DomainsSidepanel({ domains, currentDomainId }: DomainsSidepanelP
                 `}
               >
                 <div className="flex items-center gap-3">
-                  {domain.iconUrl && (
+                  {(domain.iconAi ?? domain.iconUrl) ? (
                     <Image
-                      src={domain.iconUrl}
-                      alt={domain.name}
+                      src={domain.iconAi ?? domain.iconUrl!}
+                      alt=""
                       width={24}
                       height={24}
-                      className="w-6 h-6 flex-shrink-0"
+                      className="w-6 h-6 flex-shrink-0 object-contain"
                     />
-                  )}
+                  ) : null}
                   <div className="font-medium text-sm flex-1">{domain.name}</div>
                 </div>
               </div>
