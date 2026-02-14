@@ -314,7 +314,10 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
     
     // Get the domain record to access its linked trends field
     const domainRecord = await fetchWithRetry(() => base(TAXONOMY_TABLE).find(domainId));
-    
+    if (!domainRecord) {
+      return { trends: [], parentClusterIds: [] };
+    }
+
     // Log available fields for debugging
     if (domainRecord.fields) {
       const availableFields = Object.keys(domainRecord.fields);
@@ -419,20 +422,20 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
 
       return {
         id: record.id,
-        name: getField(record, 'Name') || '',
-        description: getField(record, 'Description') || '',
-        imageUrl: getField(record, 'ImageUrl') || '',
-        image: getField(record, 'Image') || [],
+        name: String(getField(record, 'Name') ?? ''),
+        description: String(getField(record, 'Description') ?? ''),
+        imageUrl: String(getField(record, 'ImageUrl') ?? ''),
+        image: (getField(record, 'Image') as Trend['image']) ?? [],
         clusterId,
         taxonomyId,
-        domain: normalizeDomain(getField(record, 'Domain') ?? 'Technology') as Domain,
-        universe: getField(record, 'Universe') || 'General',
-        technologyReadinessLevel: parseInt(getField(record, 'TechnologyReadinessLevel') ?? '1') || 1,
-        businessReadinessLevel: parseInt(getField(record, 'BusinessReadinessLevel') ?? '1') || 1,
+        domain: String(normalizeDomain(getField(record, 'Domain') ?? 'Technology')),
+        universe: (String(getField(record, 'Universe') ?? 'General') as Trend['universe']),
+        technologyReadinessLevel: parseInt(String(getField(record, 'TechnologyReadinessLevel') ?? '1'), 10) || 1,
+        businessReadinessLevel: parseInt(String(getField(record, 'BusinessReadinessLevel') ?? '1'), 10) || 1,
         trendHorizon: (getField(record, 'TrendHorizon') || "2-5") as Trend['trendHorizon'],
-        trendHorizonReasoning: getField(record, 'Trend Horizon Reasoning') || '',
-        trlReasoning: getField(record, 'TRL Reasoning') || '',
-        brlReasoning: getField(record, 'BRL Reasoning') || '',
+        trendHorizonReasoning: String(getField(record, 'Trend Horizon Reasoning') ?? ''),
+        trlReasoning: String(getField(record, 'TRL Reasoning') ?? ''),
+        brlReasoning: String(getField(record, 'BRL Reasoning') ?? ''),
         aliases,
       };
     });

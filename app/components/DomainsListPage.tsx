@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { DomainsSidepanel } from "@/app/components/domains/DomainsSidepanel";
@@ -232,9 +233,11 @@ export function DomainsListPage({ initialDomains }: DomainsListPageProps) {
                               </span>
                             )}
                             {domain.iconUrl && (
-                              <img
+                              <Image
                                 src={domain.iconUrl}
                                 alt={domain.name}
+                                width={24}
+                                height={24}
                                 className="w-6 h-6"
                               />
                             )}

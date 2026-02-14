@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel } from "../ui/resizable-panel";
@@ -59,9 +60,11 @@ export function DomainsSidepanel({ domains, currentDomainId }: DomainsSidepanelP
               >
                 <div className="flex items-center gap-3">
                   {domain.iconUrl && (
-                    <img 
-                      src={domain.iconUrl} 
+                    <Image
+                      src={domain.iconUrl}
                       alt={domain.name}
+                      width={24}
+                      height={24}
                       className="w-6 h-6 flex-shrink-0"
                     />
                   )}

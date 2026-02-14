@@ -37,8 +37,6 @@ export function TechnologyDetailModal({
   onNavigate,
   signals = [],
 }: TechnologyDetailModalProps) {
-  if (!technology) return null;
-
   const [expandedSections, setExpandedSections] = useState<{
     horizon: boolean;
     trl: boolean;
@@ -48,6 +46,8 @@ export function TechnologyDetailModal({
     trl: false,
     brl: false,
   });
+
+  if (!technology) return null;
 
   const toggleSection = (section: 'horizon' | 'trl' | 'brl') => {
     setExpandedSections(prev => ({

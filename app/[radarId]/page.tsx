@@ -8,10 +8,11 @@ import type { Radar } from "@/app/types/radars";
 
 export const revalidate = 3600;
 
-// Return empty so we don't pre-render 100+ radar pages at build (avoids Airtable rate limits and 60s timeouts on Vercel).
-// Radar detail is available via /radars?radar=<id>. On Vercel (without output: 'export'), /recXXX also works on-demand.
+// Return a single placeholder so static export (non-Vercel build) has at least one path; real radars use /radars?radar=<id>.
+// On Vercel we don't use output: 'export', so [radarId] is rendered on-demand.
 export async function generateStaticParams() {
-  return [];
+  if (process.env.VERCEL) return [];
+  return [{ radarId: "__placeholder__" }];
 }
 
 export default async function Page(props: any) {

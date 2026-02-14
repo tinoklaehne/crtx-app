@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DomainDashboard } from "./domains/DomainDashboard";
@@ -49,9 +50,11 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
           <div className="mb-8">
             <div className="flex items-start gap-4 mb-4">
               {domain.iconUrl && (
-                <img 
-                  src={domain.iconUrl} 
+                <Image
+                  src={domain.iconUrl}
                   alt={domain.name}
+                  width={48}
+                  height={48}
                   className="w-12 h-12"
                 />
               )}

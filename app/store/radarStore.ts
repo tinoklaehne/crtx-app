@@ -12,7 +12,7 @@ interface RadarStateData {
   activeTechnology?: Trend;
   activeCluster?: Cluster;
   nodePositioning: "trl" | "brl" | "horizon";
-  viewMode: "radar" | "matrix";
+  viewMode: "radar" | "matrix" | "kanban";
 }
 
 interface RadarState extends RadarStateData {

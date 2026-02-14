@@ -51,6 +51,7 @@ export function MatrixVisualization({
   const [x, setX] = useState(0);
   const [y, setY] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const jitterValues = useRef<Map<string, { x: number; y: number }>>(new Map());
   const { selectedFilters, selectedCluster } = useFilters();
 
   if (view === "kanban") {
@@ -69,9 +70,6 @@ export function MatrixVisualization({
       </div>
     );
   }
-
-  // Create stable jitter values for each technology
-  const jitterValues = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
