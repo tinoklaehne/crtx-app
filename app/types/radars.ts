@@ -8,4 +8,6 @@ export interface Radar {
   totalTrends: number;
   lastModified: string;
   trends: string[];
+  /** From Airtable "Radar Type" – e.g. "Standalone" for sidepanel filter */
+  radarType?: string;
 }

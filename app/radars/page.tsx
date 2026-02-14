@@ -15,19 +15,24 @@ export type RadarDetail = {
   technologies: Trend[];
 };
 
+const STANDALONE_TREND_TYPE = "Standalone";
+
 export default async function RadarsRoute() {
-  const radars = await getAllRadars().catch((err) => {
+  const allRadars = await getAllRadars().catch((err) => {
     console.error("Failed to fetch radars:", err);
     return [];
   });
+  const radars = (allRadars || []).filter(
+    (r) => (r.radarType || "").trim() === STANDALONE_TREND_TYPE
+  );
 
   const radarDetails: Record<string, RadarDetail> = {};
   const clusterCache = new Map<string, Cluster[]>();
 
   // One batched fetch for all trend IDs across all radars (much fewer Airtable calls)
-  const trendRecordsMap = await fetchAllTrendRecordsForRadars(radars || []).catch(() => new Map());
+  const trendRecordsMap = await fetchAllTrendRecordsForRadars(radars).catch(() => new Map());
 
-  for (const radar of radars || []) {
+  for (const radar of radars) {
     try {
       const clusterType = radar.cluster.toLowerCase() as "parent" | "taxonomy" | "domain";
       const universe = radar.type === "Travel" ? "Travel" : "General";
@@ -54,7 +59,7 @@ export default async function RadarsRoute() {
   return (
     <Suspense fallback={<RadarsPageFallback />}>
       <RadarsPage
-        initialRadars={radars || []}
+        initialRadars={radars}
         radarDetails={radarDetails}
       />
     </Suspense>

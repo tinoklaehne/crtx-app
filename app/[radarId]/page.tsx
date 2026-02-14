@@ -55,7 +55,7 @@ export default async function Page(props: any) {
       getTrendsForRadar(initialRadar),
       getAllRadars().catch(() => []),
     ]);
-    allRadars = radarsList;
+    allRadars = radarsList.filter((r) => (r.radarType || "").trim() === "Standalone");
 
     console.log(`Found ${clustersData.length} clusters and ${technologiesData.length} trends for this radar`);
 
