@@ -19,12 +19,13 @@ export async function fetchWithRetry<T>(operation: () => Promise<T>, retries = 3
       const statusCode = error?.statusCode ?? error?.status ?? 'unknown';
       const errorType = error?.error ?? error?.type ?? 'unknown';
 
-      // Log full error details for debugging (avoid logging huge payloads)
-      console.error(`Airtable request failed (attempt ${attempt + 1}/${retries}):`, errorMessage, {
-        statusCode,
-        errorType,
-        errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`Airtable request failed (attempt ${attempt + 1}/${retries}):`, errorMessage, {
+          statusCode,
+          errorType,
+          errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
+        });
+      }
       
       if (attempt === retries - 1) {
         const finalError = new Error(`Airtable request failed after ${retries} attempts: ${errorMessage}`);
@@ -46,24 +47,24 @@ function createMockBase() {
   const mockTable = (tableName: string) => ({
     select: () => ({
       all: () => {
-        console.warn(`Mock Airtable: select().all() called on table ${tableName}`);
+        if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: select().all() called on table ${tableName}`);
         return Promise.resolve([]);
       }
     }),
     find: (id: string) => {
-      console.warn(`Mock Airtable: find(${id}) called on table ${tableName}`);
+      if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: find(${id}) called on table ${tableName}`);
       return Promise.resolve(null);
     },
     create: (fields: any) => {
-      console.warn(`Mock Airtable: create() called on table ${tableName}`);
+      if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: create() called on table ${tableName}`);
       return Promise.resolve(null);
     },
     update: (id: string, fields: any) => {
-      console.warn(`Mock Airtable: update(${id}) called on table ${tableName}`);
+      if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: update(${id}) called on table ${tableName}`);
       return Promise.resolve(null);
     },
     destroy: (id: string) => {
-      console.warn(`Mock Airtable: destroy(${id}) called on table ${tableName}`);
+      if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: destroy(${id}) called on table ${tableName}`);
       return Promise.resolve(null);
     }
   });
@@ -72,23 +73,21 @@ function createMockBase() {
 }
 
 export function getBase() {
-  const apiKey = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
-  const baseId = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-  
+  const apiKey = process.env.AIRTABLE_API_KEY ?? process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
+  const baseId = process.env.AIRTABLE_BASE_ID ?? process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
+
   if (!apiKey || !baseId) {
-    console.error('Airtable configuration missing:', { 
-      hasApiKey: !!apiKey, 
-      hasBaseId: !!baseId,
-      nodeEnv: process.env.NODE_ENV
-    });
-    console.error('Returning mock Airtable base. Please configure NEXT_PUBLIC_AIRTABLE_API_KEY and NEXT_PUBLIC_AIRTABLE_BASE_ID environment variables.');
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Airtable configuration missing:', { hasApiKey: !!apiKey, hasBaseId: !!baseId, nodeEnv: process.env.NODE_ENV });
+      console.error('Returning mock Airtable base. Please configure AIRTABLE_API_KEY and AIRTABLE_BASE_ID (or NEXT_PUBLIC_*) environment variables.');
+    }
     return createMockBase();
   }
 
-  console.log('Initializing Airtable base with configuration');
-  return new Airtable({ 
+  if (process.env.NODE_ENV === 'development') console.log('Initializing Airtable base with configuration');
+  return new Airtable({
     apiKey,
-    requestTimeout: 60000,
+    requestTimeout: 90000,
     endpointUrl: 'https://api.airtable.com'
   }).base(baseId);
 }

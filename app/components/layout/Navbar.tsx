@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
 import { NavItem } from "./NavItem";
-import { Radar, Grid3x3 } from "lucide-react";
+import { Radar, Grid3x3, Users } from "lucide-react";
 
 interface NavbarProps {
   activeView?: string;
@@ -20,13 +20,14 @@ export function Navbar({
   const router = useRouter();
   const pathname = usePathname();
   
-  // Only highlight Radar nav on the radars list page, not on individual radar detail (/recXXX)
   const activeMiniApp =
     pathname?.startsWith("/domains")
       ? "domains"
-      : pathname === "/radars" || pathname === "/radars/"
-        ? "radars"
-        : null;
+      : pathname?.startsWith("/directory")
+        ? "directory"
+        : pathname === "/radars" || pathname === "/radars/"
+          ? "radars"
+          : null;
 
   return (
     <nav className="w-20 h-screen bg-background border-r flex flex-col">
@@ -46,7 +47,12 @@ export function Navbar({
           onClick={() => router.push('/radars')}
           label="Trend Radars"
         />
-        {/* More mini app icons will be added here */}
+        <NavItem
+          icon={Users}
+          isActive={activeMiniApp === 'directory'}
+          onClick={() => router.push('/directory')}
+          label="Directory"
+        />
       </div>
       
       <div className="flex flex-col items-center gap-2 py-6">

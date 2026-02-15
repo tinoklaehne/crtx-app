@@ -1,5 +1,6 @@
 // Removed 'use server' directive for static export compatibility
 
+import { unstable_cache } from 'next/cache';
 import { getBase, getField, normalizeDomain, fetchWithRetry } from './utils';
 import type { Cluster } from '@/app/types/clusters';
 import type { Trend } from '@/app/types/trends';
@@ -9,24 +10,19 @@ import type { Domain } from '@/app/types/domains';
 const TRENDS_TABLE = 'tblZ683rmMtm6BkyL';
 const TAXONOMY_TABLE = 'tbld5CXEcljomMMQB';
 
-// Get all clusters (Macro trends) with optional universe filter
-export async function getClusters(
+async function getClustersUncached(
   clusterType: "parent" | "taxonomy" | "domain" = "parent",
   universe?: "General" | "Travel"
 ): Promise<Cluster[]> {
   try {
     const base = getBase();
     const table = clusterType === "taxonomy" ? TAXONOMY_TABLE : TRENDS_TABLE;
-    
     let filterFormula = clusterType === "taxonomy" ? "" : "{Scale} = 'Macro'";
     if (universe) {
       const universeFilter = `{universe} = '${universe}'`;
-      filterFormula = filterFormula 
-        ? `AND(${filterFormula}, ${universeFilter})`
-        : universeFilter;
+      filterFormula = filterFormula ? `AND(${filterFormula}, ${universeFilter})` : universeFilter;
     }
-    
-    const records = await fetchWithRetry(() => 
+    const records = await fetchWithRetry(() =>
       base(table)
         .select({
           filterByFormula: filterFormula,
@@ -34,7 +30,6 @@ export async function getClusters(
         })
         .all()
     );
-    
     return records.map(record => ({
       id: record.id,
       name: getField(record, 'Name') || '',
@@ -51,6 +46,19 @@ export async function getClusters(
     console.error('Error fetching clusters:', error);
     return [];
   }
+}
+
+/** Get all clusters (Macro trends) with optional universe filter. Cached for 1 hour. */
+export async function getClusters(
+  clusterType: "parent" | "taxonomy" | "domain" = "parent",
+  universe?: "General" | "Travel"
+): Promise<Cluster[]> {
+  const cacheKey = ['clusters', clusterType, universe ?? 'all'];
+  return unstable_cache(
+    () => getClustersUncached(clusterType, universe),
+    cacheKey,
+    { revalidate: 3600, tags: ['clusters'] }
+  )();
 }
 
 // Get all technologies (Micro trends) with optional universe filter

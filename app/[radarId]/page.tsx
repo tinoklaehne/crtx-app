@@ -32,15 +32,15 @@ export default async function Page(props: any) {
   let error: string | null = null;
 
   try {
-    console.log(`Attempting to fetch radar with ID: ${radarId}`);
+    if (process.env.NODE_ENV === 'development') console.log(`Attempting to fetch radar with ID: ${radarId}`);
     initialRadar = await getRadar(radarId);
 
     if (!initialRadar) {
-      console.warn(`Radar not found for ID: ${radarId}`);
+      if (process.env.NODE_ENV === 'development') console.warn(`Radar not found for ID: ${radarId}`);
       return notFound();
     }
 
-    console.log(`Successfully loaded radar: ${initialRadar.name}`);
+    if (process.env.NODE_ENV === 'development') console.log(`Successfully loaded radar: ${initialRadar.name}`);
 
     const clusterType = initialRadar.cluster.toLowerCase() as
       | "parent"
@@ -48,7 +48,7 @@ export default async function Page(props: any) {
       | "domain";
     const universe = initialRadar.type === "Travel" ? "Travel" : "General";
 
-    console.log(`Fetching clusters and trends (REL_Trends) for radar ${initialRadar.name}`);
+    if (process.env.NODE_ENV === 'development') console.log(`Fetching clusters and trends (REL_Trends) for radar ${initialRadar.name}`);
 
     const [clustersData, technologiesData, radarsList] = await Promise.all([
       getClusters(clusterType, universe),
@@ -57,7 +57,7 @@ export default async function Page(props: any) {
     ]);
     allRadars = radarsList.filter((r) => (r.radarType || "").trim() === "Standalone");
 
-    console.log(`Found ${clustersData.length} clusters and ${technologiesData.length} trends for this radar`);
+    if (process.env.NODE_ENV === 'development') console.log(`Found ${clustersData.length} clusters and ${technologiesData.length} trends for this radar`);
 
     if (!clustersData.length) {
       error = "No clusters found";
@@ -69,7 +69,7 @@ export default async function Page(props: any) {
       initialClusters = activeClusters;
       initialTechnologies = technologiesData;
 
-      console.log(`Final result: ${initialClusters.length} clusters and ${initialTechnologies.length} technologies`);
+      if (process.env.NODE_ENV === 'development') console.log(`Final result: ${initialClusters.length} clusters and ${initialTechnologies.length} technologies`);
     }
   } catch (fetchError) {
     console.error("Error loading radar:", fetchError);

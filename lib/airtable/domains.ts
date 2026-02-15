@@ -1,5 +1,6 @@
 // Removed 'use server' directive for static export compatibility
 
+import { unstable_cache } from 'next/cache';
 import { getBase, getField, fetchWithRetry, normalizeDomain } from './utils';
 import type { BusinessDomain, DomainWithMomentum, MomentumDataPoint } from '@/app/types/businessDomains';
 import type { DomainTabContent, DomainContentItem } from '@/app/types/domainContent';
@@ -36,19 +37,14 @@ function getIconAiUrl(record: any): string | undefined {
   return undefined;
 }
 
-// Fetch all business domains from taxonomy table
-export async function getAllDomains(): Promise<BusinessDomain[]> {
+async function getAllDomainsUncached(): Promise<BusinessDomain[]> {
   try {
     const base = getBase();
-    
-    const records = await fetchWithRetry(() => 
+    const records = await fetchWithRetry(() =>
       base(TAXONOMY_TABLE)
-        .select({
-          sort: [{ field: 'Name', direction: 'asc' }]
-        })
+        .select({ sort: [{ field: 'Name', direction: 'asc' }] })
         .all()
     );
-    
     return records.map(record => ({
       id: record.id,
       name: getField(record, 'Name') || '',
@@ -70,6 +66,11 @@ export async function getAllDomains(): Promise<BusinessDomain[]> {
     console.error('Error fetching domains:', error);
     return [];
   }
+}
+
+/** Fetch all business domains from taxonomy table. Cached for 1 hour. */
+export async function getAllDomains(): Promise<BusinessDomain[]> {
+  return unstable_cache(getAllDomainsUncached, ['domains-list'], { revalidate: 3600, tags: ['domains'] })();
 }
 
 // Fetch a single domain by ID
@@ -102,7 +103,7 @@ export async function getDomain(id: string): Promise<BusinessDomain | null> {
     };
   } catch (error: any) {
     if (error.error === 'NOT_FOUND' || error.statusCode === 404) {
-      console.warn(`Domain not found with ID: ${id}`);
+      if (process.env.NODE_ENV === 'development') console.warn(`Domain not found with ID: ${id}`);
       return null;
     }
     console.error('Error fetching domain:', error);
@@ -110,7 +111,7 @@ export async function getDomain(id: string): Promise<BusinessDomain | null> {
   }
 }
 
-/** Build momentum sparkline from domain table columns: Total Actions Month, Total Actions Quarter, Total Actions */
+/** Build momentum sparkline from domain table columns only (no extra API calls). Uses Total Actions Month, Quarter, Total for a 3-point trend. */
 function buildMomentumFromDomainFields(domain: BusinessDomain): MomentumDataPoint[] {
   const month = domain.signalsMonth ?? 0;
   const quarter = domain.signalsQuarter ?? 0;
@@ -123,7 +124,7 @@ function buildMomentumFromDomainFields(domain: BusinessDomain): MomentumDataPoin
   ];
 }
 
-/** Fetch all domains with momentum; only returns Hierarchy === "Sub-Area" for list/sidepanel. */
+/** Fetch all domains with momentum; only returns Hierarchy === "Sub-Area". Momentum from domain table fields (fast, no per-domain content fetch). */
 export async function getDomainsWithMomentum(): Promise<DomainWithMomentum[]> {
   const domains = await getAllDomains();
   const subAreaOnly = domains.filter(d => (d.hierarchy || '').trim() === 'Sub-Area');
@@ -136,14 +137,6 @@ export async function getDomainsWithMomentum(): Promise<DomainWithMomentum[]> {
 // Get all domain IDs for static generation
 export async function getDomainIds(): Promise<string[]> {
   try {
-    const apiKey = process.env.NEXT_PUBLIC_AIRTABLE_API_KEY;
-    const baseId = process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID;
-    
-    if (!apiKey || !baseId) {
-      console.warn('Airtable credentials not available, returning empty array');
-      return [];
-    }
-
     const base = getBase();
     const records = await fetchWithRetry(() => 
       base(TAXONOMY_TABLE)
@@ -155,8 +148,7 @@ export async function getDomainIds(): Promise<string[]> {
         .all()
     );
     
-    console.log(`Successfully fetched ${records.length} domain IDs from Airtable`);
-    
+    if (process.env.NODE_ENV === 'development') console.log(`Successfully fetched ${records.length} domain IDs from Airtable`);
     return records.map(record => record.id);
   } catch (error) {
     console.error('Error fetching domain IDs:', error);
@@ -164,28 +156,47 @@ export async function getDomainIds(): Promise<string[]> {
   }
 }
 
-// Helper function to fetch linked records by IDs
+const LINKED_RECORDS_BATCH_SIZE = 12;
+
+/** Fetch records by ID in batches using OR(RECORD_ID()=...) to avoid N+1 API calls. */
+async function fetchRecordsByIds(tableName: string, recordIds: string[], batchSize = LINKED_RECORDS_BATCH_SIZE): Promise<any[]> {
+  if (!recordIds || recordIds.length === 0) return [];
+  const base = getBase();
+  const unique = Array.from(new Set(recordIds));
+  const idToRecord = new Map<string, any>();
+
+  for (let i = 0; i < unique.length; i += batchSize) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 150));
+    const batch = unique.slice(i, i + batchSize);
+    const formula = batch.map((id) => `RECORD_ID()='${id.replace(/'/g, "\\'")}'`).join(',');
+    try {
+      const records = await fetchWithRetry(() =>
+        base(tableName)
+          .select({ filterByFormula: `OR(${formula})`, pageSize: batchSize })
+          .all()
+      );
+      for (const rec of records) {
+        idToRecord.set(rec.id, rec);
+      }
+    } catch (err) {
+      for (const id of batch) {
+        try {
+          const rec = await fetchWithRetry(() => base(tableName).find(id));
+          if (rec) idToRecord.set(rec.id, rec);
+        } catch {
+          // skip failed single record
+        }
+      }
+    }
+  }
+
+  return recordIds.map((id) => idToRecord.get(id)).filter(Boolean);
+}
+
 async function fetchLinkedRecords(tableName: string, recordIds: string[]): Promise<any[]> {
   if (!recordIds || recordIds.length === 0) return [];
-  
   try {
-    const base = getBase();
-    console.log(`Fetching ${recordIds.length} linked records from table ${tableName}`);
-    
-    const records = await Promise.all(
-      recordIds.map((id, index) => 
-        fetchWithRetry(() => base(tableName).find(id))
-          .catch((error) => {
-            console.error(`Failed to fetch record ${id} (${index + 1}/${recordIds.length}) from ${tableName}:`, error);
-            return null;
-          })
-      )
-    );
-    
-    const successfulRecords = records.filter(record => record !== null);
-    console.log(`Successfully fetched ${successfulRecords.length} of ${recordIds.length} records from ${tableName}`);
-    
-    return successfulRecords;
+    return await fetchRecordsByIds(tableName, recordIds);
   } catch (error: any) {
     console.error(`Error fetching linked records from ${tableName}:`, {
       error: error?.message || error?.toString() || error,
@@ -227,8 +238,7 @@ function mapActionToContentItem(record: any): DomainContentItem {
                    getField<string>(record, 'NAME') ||
                    'Untitled';
 
-  // Log if we're still getting Untitled to help debug
-  if (headline === 'Untitled') {
+  if (process.env.NODE_ENV === 'development' && headline === 'Untitled') {
     console.log('No headline found for record:', record.id, 'Available fields:', Object.keys(record.fields || {}));
   }
 
@@ -265,7 +275,7 @@ export async function getDomainContent(domainId: string): Promise<DomainTabConte
                         [];
     
     if (!actionsField || !Array.isArray(actionsField) || actionsField.length === 0) {
-      console.log(`No Actions found for domain ${domainId}`);
+      if (process.env.NODE_ENV === 'development') console.log(`No Actions found for domain ${domainId}`);
       return {
         now: [],
         new: [],
@@ -277,7 +287,7 @@ export async function getDomainContent(domainId: string): Promise<DomainTabConte
     const actionRecords = await fetchLinkedRecords(ACTIONS_TABLE, actionsField);
     
     if (actionRecords.length === 0) {
-      console.log(`No Actions found for domain ${domainId} in table ${ACTIONS_TABLE}`);
+      if (process.env.NODE_ENV === 'development') console.log(`No Actions found for domain ${domainId} in table ${ACTIONS_TABLE}`);
       return {
         now: [],
         new: [],
@@ -285,24 +295,14 @@ export async function getDomainContent(domainId: string): Promise<DomainTabConte
       };
     }
     
-    console.log(`Found ${actionRecords.length} actions/signals/news for domain ${domainId}`);
-    
-    // Log available fields from first record for debugging
-    if (actionRecords.length > 0) {
+    if (process.env.NODE_ENV === 'development') console.log(`Found ${actionRecords.length} actions/signals/news for domain ${domainId}`);
+    if (process.env.NODE_ENV === 'development' && actionRecords.length > 0) {
       const firstRecord = actionRecords[0];
-      const availableFields = firstRecord.fields ? Object.keys(firstRecord.fields) : 
-                             (typeof firstRecord.get === 'function' ? 'Using record.get()' : 'Unknown structure');
+      const availableFields = firstRecord.fields ? Object.keys(firstRecord.fields) : (typeof firstRecord.get === 'function' ? 'Using record.get()' : 'Unknown structure');
       console.log('Sample record fields available:', availableFields);
-      if (firstRecord.fields) {
-        console.log('First record sample:', {
-          id: firstRecord.id,
-          fields: Object.keys(firstRecord.fields),
-          headlineAttempt: getField<string>(firstRecord, 'Headline'),
-          nameAttempt: getField<string>(firstRecord, 'Name'),
-        });
-      }
+      if (firstRecord.fields) console.log('First record sample:', { id: firstRecord.id, fields: Object.keys(firstRecord.fields), headlineAttempt: getField<string>(firstRecord, 'Headline'), nameAttempt: getField<string>(firstRecord, 'Name') });
     }
-    
+
     // Map Actions directly to content items (Actions = Signals/News)
     const nowContent: DomainContentItem[] = actionRecords.map(record => 
       mapActionToContentItem(record)
@@ -339,29 +339,16 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
       return { trends: [], parentClusterIds: [] };
     }
 
-    // Log available fields for debugging
-    if (domainRecord.fields) {
+    if (process.env.NODE_ENV === 'development' && domainRecord.fields) {
       const availableFields = Object.keys(domainRecord.fields);
       console.log(`Available fields on domain ${domainId}:`, availableFields);
       console.log(`Looking for 'Trends' field. Available:`, availableFields.includes('Trends'));
-      
-      // Look for fields containing "Trend" (case insensitive)
-      const trendFields = availableFields.filter(field => 
-        field.toLowerCase().includes('trend')
-      );
+      const trendFields = availableFields.filter(field => field.toLowerCase().includes('trend'));
       console.log(`Fields containing 'trend':`, trendFields);
-      
-      // Log all field names that might be related
-      trendFields.forEach(field => {
-        console.log(`Field '${field}' value:`, domainRecord.fields[field]);
-      });
-      
-      // Try direct access to see what we get
-      if (domainRecord.fields['Trends']) {
-        console.log(`Direct access to Trends field:`, domainRecord.fields['Trends']);
-      }
+      trendFields.forEach(field => { console.log(`Field '${field}' value:`, domainRecord.fields[field]); });
+      if (domainRecord.fields['Trends']) console.log(`Direct access to Trends field:`, domainRecord.fields['Trends']);
     }
-    
+
     // Get the linked trends field - the field is called "Trends/Trends"
     let trendsField: string[] = [];
     
@@ -379,25 +366,19 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
       trendsField = getField<string[]>(domainRecord, 'REL_Trends') || [];
     }
     
-    console.log(`Trends field value for domain ${domainId}:`, trendsField, `(count: ${trendsField?.length || 0})`);
-    
+    if (process.env.NODE_ENV === 'development') console.log(`Trends field value for domain ${domainId}:`, trendsField, `(count: ${trendsField?.length || 0})`);
     if (!trendsField || !Array.isArray(trendsField) || trendsField.length === 0) {
-      console.log(`No Trends found for domain ${domainId}. Field value:`, trendsField);
+      if (process.env.NODE_ENV === 'development') console.log(`No Trends found for domain ${domainId}. Field value:`, trendsField);
       return { trends: [], parentClusterIds: [] };
     }
-    
-    // Fetch trend records
-    console.log(`Fetching ${trendsField.length} trend records from table ${TRENDS_TABLE}`);
+    if (process.env.NODE_ENV === 'development') console.log(`Fetching ${trendsField.length} trend records from table ${TRENDS_TABLE}`);
     const trendRecords = await fetchLinkedRecords(TRENDS_TABLE, trendsField);
-    
-    console.log(`Fetched ${trendRecords.length} trend records`);
-    
+    if (process.env.NODE_ENV === 'development') console.log(`Fetched ${trendRecords.length} trend records`);
     if (trendRecords.length === 0) {
-      console.log(`No Trends found for domain ${domainId} in table ${TRENDS_TABLE}. Trend IDs were:`, trendsField);
+      if (process.env.NODE_ENV === 'development') console.log(`No Trends found for domain ${domainId} in table ${TRENDS_TABLE}. Trend IDs were:`, trendsField);
       return { trends: [], parentClusterIds: [] };
     }
-    
-    console.log(`Successfully found ${trendRecords.length} trends for domain ${domainId}`);
+    if (process.env.NODE_ENV === 'development') console.log(`Successfully found ${trendRecords.length} trends for domain ${domainId}`);
     
     // Collect all unique parent cluster IDs from all trends' REL_Trends arrays
     const allParentClusterIds = new Set<string>();
@@ -421,12 +402,9 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
       const clusterId = Array.isArray(relTrendsField) && relTrendsField.length > 0 ? relTrendsField[0] : '';
       const taxonomyId = Array.isArray(taxonomyField) && taxonomyField.length > 0 ? taxonomyField[0] : undefined;
       
-      // Log for debugging
-      if (!clusterId && relTrendsField) {
-        console.log(`Trend ${record.id} has REL_Trends but no valid clusterId:`, relTrendsField);
-      }
-      if (clusterId) {
-        console.log(`Trend ${record.id} (${getField(record, 'Name')}) -> Parent cluster: ${clusterId}`);
+      if (process.env.NODE_ENV === 'development') {
+        if (!clusterId && relTrendsField) console.log(`Trend ${record.id} has REL_Trends but no valid clusterId:`, relTrendsField);
+        if (clusterId) console.log(`Trend ${record.id} (${getField(record, 'Name')}) -> Parent cluster: ${clusterId}`);
       }
 
       // Handle aliases field
@@ -461,8 +439,7 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
       };
     });
     
-    console.log(`Collected ${allParentClusterIds.size} unique parent cluster IDs from ${trends.length} trends`);
-    
+    if (process.env.NODE_ENV === 'development') console.log(`Collected ${allParentClusterIds.size} unique parent cluster IDs from ${trends.length} trends`);
     return {
       trends,
       parentClusterIds: Array.from(allParentClusterIds)

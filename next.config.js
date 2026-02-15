@@ -15,9 +15,8 @@ const nextConfig = {
   },
   // Ensure proper asset prefix for static export
   assetPrefix: '',
-  // Disable webpack caching to prevent file system errors
   webpack: (config) => {
-    config.cache = false;
+    config.cache = config.cache ?? { type: 'filesystem', allowCollectingMemory: true };
     // Ensure Airtable is only bundled for server-side
     config.externals = config.externals || [];
     if (typeof config.externals === 'object' && !Array.isArray(config.externals)) {

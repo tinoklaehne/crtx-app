@@ -25,13 +25,13 @@ The application is configured to:
 
 ## Environment Variables
 
-The following environment variables are automatically set:
-- `NEXT_PUBLIC_AIRTABLE_API_KEY`: Your Airtable API key
-- `NEXT_PUBLIC_AIRTABLE_BASE_ID`: Your Airtable base ID
+Use **server-only** variables so the key is never bundled in client code (recommended):
+- `AIRTABLE_API_KEY`: Your Airtable API key (server-only, not exposed to the browser)
+- `AIRTABLE_BASE_ID`: Your Airtable base ID
 
-These are configured in:
-- `package.json` scripts (for local development and builds)
-- `netlify.toml` (for Netlify deployments)
+Fallback (for migration): `NEXT_PUBLIC_AIRTABLE_API_KEY` and `NEXT_PUBLIC_AIRTABLE_BASE_ID` are still read if the server-only vars are not set. Prefer setting `AIRTABLE_*` and leaving `NEXT_PUBLIC_*` unset.
+
+Configure in your deployment dashboard (e.g. Vercel, Netlify) or in `.env` for local development. Never commit `.env` or hardcode keys.
 
 ## Key Features
 

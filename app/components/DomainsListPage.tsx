@@ -227,13 +227,13 @@ export function DomainsListPage({ initialDomains }: DomainsListPageProps) {
                                 {domain.status}
                               </span>
                             )}
-                            {domain.iconUrl && (
+                            {(domain.iconAi ?? domain.iconUrl) && (
                               <Image
-                                src={domain.iconUrl}
-                                alt={domain.name}
+                                src={domain.iconAi ?? domain.iconUrl!}
+                                alt=""
                                 width={24}
                                 height={24}
-                                className="w-6 h-6"
+                                className="w-6 h-6 flex-shrink-0 object-contain"
                               />
                             )}
                             <div>
