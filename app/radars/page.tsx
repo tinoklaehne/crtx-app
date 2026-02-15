@@ -16,7 +16,6 @@ export type RadarDetail = {
 };
 
 const STANDALONE_TREND_TYPE = "Standalone";
-const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
 
 export default async function RadarsRoute() {
   const allRadars = await getAllRadars().catch((err) => {
@@ -28,31 +27,29 @@ export default async function RadarsRoute() {
   );
 
   const radarDetails: Record<string, RadarDetail> = {};
-  if (!isVercel) {
-    const clusterCache = new Map<string, Cluster[]>();
-    const trendRecordsMap = await fetchAllTrendRecordsForRadars(radars).catch(() => new Map());
-    for (const radar of radars) {
-      try {
-        const clusterType = radar.cluster.toLowerCase() as "parent" | "taxonomy" | "domain";
-        const universe = radar.type === "Travel" ? "Travel" : "General";
-        const cacheKey = `${clusterType}:${universe}`;
-        let clustersData = clusterCache.get(cacheKey);
-        if (!clustersData) {
-          clustersData = await getClusters(clusterType, universe);
-          clusterCache.set(cacheKey, clustersData);
-        }
-        const technologies = getTrendsForRadarFromRecords(radar, trendRecordsMap);
-        const filteredClusters = clustersData.filter((cluster) =>
-          technologies.some((tech) => tech.clusterId === cluster.id)
-        );
-        radarDetails[radar.id] = {
-          radar,
-          clusters: filteredClusters,
-          technologies,
-        };
-      } catch (e) {
-        console.error(`Error preloading radar ${radar.id}:`, e);
+  const clusterCache = new Map<string, Cluster[]>();
+  const trendRecordsMap = await fetchAllTrendRecordsForRadars(radars).catch(() => new Map());
+  for (const radar of radars) {
+    try {
+      const clusterType = radar.cluster.toLowerCase() as "parent" | "taxonomy" | "domain";
+      const universe = radar.type === "Travel" ? "Travel" : "General";
+      const cacheKey = `${clusterType}:${universe}`;
+      let clustersData = clusterCache.get(cacheKey);
+      if (!clustersData) {
+        clustersData = await getClusters(clusterType, universe);
+        clusterCache.set(cacheKey, clustersData);
       }
+      const technologies = getTrendsForRadarFromRecords(radar, trendRecordsMap);
+      const filteredClusters = clustersData.filter((cluster) =>
+        technologies.some((tech) => tech.clusterId === cluster.id)
+      );
+      radarDetails[radar.id] = {
+        radar,
+        clusters: filteredClusters,
+        technologies,
+      };
+    } catch (e) {
+      console.error(`Error preloading radar ${radar.id}:`, e);
     }
   }
 
@@ -61,7 +58,6 @@ export default async function RadarsRoute() {
       <RadarsPage
         initialRadars={radars}
         radarDetails={radarDetails}
-        linkToDetailRoute={isVercel}
       />
     </Suspense>
   );

@@ -10,11 +10,9 @@ import type { Radar } from "@/app/types/radars";
 interface RadarsSidepanelProps {
   radars: Radar[];
   currentRadarId?: string;
-  /** When true, navigate to /radars/[radarId] for on-demand load (e.g. Vercel). When false, use ?radar=id with preloaded data (static export). */
-  linkToDetailRoute?: boolean;
 }
 
-export function RadarsSidepanel({ radars, currentRadarId, linkToDetailRoute = false }: RadarsSidepanelProps) {
+export function RadarsSidepanel({ radars, currentRadarId }: RadarsSidepanelProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -29,11 +27,7 @@ export function RadarsSidepanel({ radars, currentRadarId, linkToDetailRoute = fa
   }, [radars, searchQuery]);
 
   const handleRadarClick = (radarId: string) => {
-    if (linkToDetailRoute) {
-      router.push(`/radars/${radarId}`);
-    } else {
-      router.push(`/radars?radar=${radarId}`);
-    }
+    router.push(`/radars?radar=${radarId}`);
   };
 
   return (
