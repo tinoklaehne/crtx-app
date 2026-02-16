@@ -85,3 +85,44 @@ export async function getReport(id: string): Promise<Report | null> {
     return null;
   }
 }
+
+/** Get reports linked to a specific domain via (REL) Sub-Area field */
+export async function getReportsByDomain(domainId: string): Promise<Report[]> {
+  try {
+    const base = getBase();
+    // Fetch all reports and filter by domainId in JavaScript
+    // This is more reliable than Airtable formula for linked records
+    const records = await fetchWithRetry(
+      () =>
+        base(REPORTS_TABLE)
+          .select({
+            sort: [{ field: 'Year', direction: 'desc' }, { field: 'Name', direction: 'asc' }],
+          })
+          .all(),
+      3,
+      4000
+    );
+    
+    const allReports = records.map((record) => ({
+      id: record.id,
+      name: getField<string>(record, 'Name') ?? '',
+      source: getField<string>(record, 'Source') ?? undefined,
+      sourceLogo: getSourceLogoUrl(record),
+      subAreaIds: (getField<string[]>(record, '(REL) Sub-Area') ?? []).filter(Boolean),
+      fileUrl: getFileUrl(record),
+      summary: getField<string>(record, '-->AI/Summary') ?? undefined,
+      transcript: getField<string>(record, '-->AI/Transcript') ?? undefined,
+      year: getField<string | number>(record, 'Year') ?? undefined,
+      keyInsights: getField<string | string[]>(record, 'Key Insights') ?? undefined,
+      keywords: getField<string | string[]>(record, 'Keywords') ?? undefined,
+    }));
+
+    // Filter reports where subAreaIds includes the domainId
+    return allReports.filter(report => 
+      (report.subAreaIds ?? []).includes(domainId)
+    );
+  } catch (error) {
+    console.error('Error fetching reports by domain:', error);
+    return [];
+  }
+}

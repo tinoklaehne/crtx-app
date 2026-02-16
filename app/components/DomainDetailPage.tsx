@@ -14,11 +14,13 @@ import {
 import { DomainDashboard } from "./domains/DomainDashboard";
 import { DomainContentList } from "./domains/DomainContentList";
 import { DomainTrendsView } from "./domains/DomainTrendsView";
+import { DomainReportsSection } from "./domains/DomainReportsSection";
 import { DomainsSidepanel } from "./domains/DomainsSidepanel";
 import type { BusinessDomain } from "@/app/types/businessDomains";
 import type { DomainTabContent, DomainTab } from "@/app/types/domainContent";
 import type { Trend } from "@/app/types/trends";
 import type { Cluster } from "@/app/types/clusters";
+import type { Report } from "@/app/types/reports";
 
 interface DomainDetailPageProps {
   domain: BusinessDomain;
@@ -28,6 +30,8 @@ interface DomainDetailPageProps {
   allDomains?: BusinessDomain[];
   /** Map of record id → name for Arena filter labels (from full Domains table) */
   arenaNames?: Record<string, string>;
+  /** Reports linked to this domain */
+  reports?: Report[];
 }
 
 function formatKeywords(keywords: BusinessDomain["keywords"]): string {
@@ -36,7 +40,7 @@ function formatKeywords(keywords: BusinessDomain["keywords"]): string {
   return String(keywords).trim();
 }
 
-export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {} }: DomainDetailPageProps) {
+export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {}, reports = [] }: DomainDetailPageProps) {
   const [activeTab, setActiveTab] = useState<DomainTab>("now");
 
   const getActiveTabItems = () => {
@@ -158,6 +162,9 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
               <p>Next section coming soon.</p>
             </div>
           )}
+
+          {/* Reports Section */}
+          <DomainReportsSection reports={reports} domainNames={arenaNames} />
         </div>
       </div>
     </div>
