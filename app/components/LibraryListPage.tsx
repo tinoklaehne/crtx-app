@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, Suspense } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { LibrarySidepanel } from "@/app/components/library/LibrarySidepanel";
@@ -12,7 +13,7 @@ import type { Report } from "@/app/types/reports";
 
 const PAGE_SIZE = 15;
 
-type SortKey = "name" | "source" | "subArea";
+type SortKey = "name" | "source" | "subArea" | "year";
 type SortOrder = "asc" | "desc";
 
 interface LibraryListPageProps {
@@ -65,9 +66,10 @@ export function LibraryListPage({
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({
     source: [],
     subArea: [],
+    year: [],
   });
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+  const [sortKey, setSortKey] = useState<SortKey>("year");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(1);
 
   // Build filter categories
@@ -101,7 +103,7 @@ export function LibraryListPage({
     if (subAreas.size > 0) {
       categories.push({
         id: 'subArea',
-        label: 'Sub-Area',
+        label: 'Domain',
         options: Array.from(subAreas).sort((a, b) => {
           const nameA = domainNames[a] || a;
           const nameB = domainNames[b] || b;
@@ -109,6 +111,29 @@ export function LibraryListPage({
         }).map(id => ({
           value: id,
           label: domainNames[id] || id,
+        })),
+      });
+    }
+
+    // Year category
+    const years = new Set<string>();
+    reports.forEach(report => {
+      if (report.year) {
+        const yearStr = String(report.year);
+        if (yearStr.trim()) years.add(yearStr);
+      }
+    });
+    if (years.size > 0) {
+      categories.push({
+        id: 'year',
+        label: 'Year',
+        options: Array.from(years).sort((a, b) => {
+          const numA = parseInt(a) || 0;
+          const numB = parseInt(b) || 0;
+          return numB - numA; // Newest first
+        }).map(year => ({
+          value: year,
+          label: year,
         })),
       });
     }
@@ -144,6 +169,16 @@ export function LibraryListPage({
       );
     }
 
+    // Year filter
+    const yearFilter = selectedFilters.year;
+    if (yearFilter && yearFilter.length > 0) {
+      list = list.filter(report => {
+        if (!report.year) return false;
+        const yearStr = String(report.year);
+        return yearFilter.includes(yearStr);
+      });
+    }
+
     return list;
   }, [reports, searchQuery, selectedFilters]);
 
@@ -163,6 +198,11 @@ export function LibraryListPage({
           const aSubArea = (a.subAreaIds ?? []).map(id => domainNames[id] || "").join(", ") || "";
           const bSubArea = (b.subAreaIds ?? []).map(id => domainNames[id] || "").join(", ") || "";
           comparison = aSubArea.localeCompare(bSubArea);
+          break;
+        case "year":
+          const aYear = a.year ? (typeof a.year === 'number' ? a.year : parseInt(String(a.year)) || 0) : 0;
+          const bYear = b.year ? (typeof b.year === 'number' ? b.year : parseInt(String(b.year)) || 0) : 0;
+          comparison = aYear - bYear;
           break;
       }
       return sortOrder === "asc" ? comparison : -comparison;
@@ -238,6 +278,7 @@ export function LibraryListPage({
                 <table className="w-full">
                   <thead className="bg-muted/50">
                     <tr>
+                      <th className="p-4 font-semibold w-16"></th>
                       <SortHeader
                         label="NAME"
                         sortKey="name"
@@ -253,8 +294,15 @@ export function LibraryListPage({
                         onSort={handleSort}
                       />
                       <SortHeader
-                        label="SUB-AREA"
+                        label="DOMAIN"
                         sortKey="subArea"
+                        currentSortKey={sortKey}
+                        currentOrder={sortOrder}
+                        onSort={handleSort}
+                      />
+                      <SortHeader
+                        label="YEAR"
+                        sortKey="year"
                         currentSortKey={sortKey}
                         currentOrder={sortOrder}
                         onSort={handleSort}
@@ -264,7 +312,7 @@ export function LibraryListPage({
                   <tbody>
                     {paginatedReports.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="p-8 text-center text-muted-foreground">
+                        <td colSpan={5} className="p-8 text-center text-muted-foreground">
                           {searchQuery || activeFilterCount > 0
                             ? "No reports found matching your filters."
                             : "No reports available."}
@@ -277,6 +325,23 @@ export function LibraryListPage({
                           onClick={() => router.push(`/library/${report.id}`)}
                           className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
                         >
+                          <td className="p-4">
+                            {report.sourceLogo ? (
+                              <Image
+                                src={report.sourceLogo}
+                                alt={report.source || report.name}
+                                width={32}
+                                height={32}
+                                className="w-8 h-8 object-contain"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                                <span className="text-xs text-muted-foreground">
+                                  {report.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </td>
                           <td className="p-4 font-medium">{report.name}</td>
                           <td className="p-4 text-muted-foreground">{report.source || "—"}</td>
                           <td className="p-4 text-muted-foreground">
@@ -284,6 +349,9 @@ export function LibraryListPage({
                               .map(id => domainNames[id])
                               .filter(Boolean)
                               .join(", ") || "—"}
+                          </td>
+                          <td className="p-4 text-muted-foreground">
+                            {report.year ? String(report.year) : "—"}
                           </td>
                         </tr>
                       ))

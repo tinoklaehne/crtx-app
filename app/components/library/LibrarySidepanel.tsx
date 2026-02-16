@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel } from "../ui/resizable-panel";
@@ -24,12 +25,17 @@ function buildLibraryFilterCategories(
 ): FilterCategory[] {
   const sourceSet = new Set<string>();
   const subAreaIdSet = new Set<string>();
+  const yearSet = new Set<string>();
 
   reports.forEach((r) => {
     if (r.source?.trim()) sourceSet.add(r.source.trim());
     (r.subAreaIds ?? []).forEach((id) => {
       if (domainNames[id]) subAreaIdSet.add(id);
     });
+    if (r.year) {
+      const yearStr = String(r.year);
+      if (yearStr.trim()) yearSet.add(yearStr);
+    }
   });
 
   return [
@@ -40,7 +46,7 @@ function buildLibraryFilterCategories(
     },
     {
       id: "subArea",
-      label: "Sub-Area",
+      label: "Domain",
       options: [...subAreaIdSet].sort((a, b) => {
         const nameA = domainNames[a] || a;
         const nameB = domainNames[b] || b;
@@ -48,6 +54,18 @@ function buildLibraryFilterCategories(
       }).map((id) => ({
         value: id,
         label: domainNames[id] ?? id,
+      })),
+    },
+    {
+      id: "year",
+      label: "Year",
+      options: [...yearSet].sort((a, b) => {
+        const numA = parseInt(a) || 0;
+        const numB = parseInt(b) || 0;
+        return numB - numA; // Newest first
+      }).map((year) => ({
+        value: year,
+        label: year,
       })),
     },
   ];
@@ -75,9 +93,11 @@ export function LibrarySidepanel({ reports, domainNames = {}, currentReportId }:
     }
     const sourceSel = selectedFilters.source;
     const subAreaSel = selectedFilters.subArea;
+    const yearSel = selectedFilters.year;
     const hasSource = sourceSel?.length;
     const hasSubArea = subAreaSel?.length;
-    if (!hasSource && !hasSubArea) return list;
+    const hasYear = yearSel?.length;
+    if (!hasSource && !hasSubArea && !hasYear) return list;
     return list.filter((report) => {
       if (hasSource) {
         if (!report.source || !sourceSel.includes(report.source)) return false;
@@ -85,6 +105,11 @@ export function LibrarySidepanel({ reports, domainNames = {}, currentReportId }:
       if (hasSubArea) {
         const ids = report.subAreaIds ?? [];
         if (!subAreaSel.some((id) => ids.includes(id))) return false;
+      }
+      if (hasYear) {
+        if (!report.year) return false;
+        const yearStr = String(report.year);
+        if (!yearSel.includes(yearStr)) return false;
       }
       return true;
     });
@@ -139,10 +164,29 @@ export function LibrarySidepanel({ reports, domainNames = {}, currentReportId }:
                   ${isActive ? "bg-secondary" : "hover:bg-secondary/50"}
                 `}
               >
-                <div className="font-medium text-sm">{report.name}</div>
-                {report.source && (
-                  <div className="text-xs text-muted-foreground mt-1">{report.source}</div>
-                )}
+                <div className="flex items-center gap-3">
+                  {report.sourceLogo ? (
+                    <Image
+                      src={report.sourceLogo}
+                      alt={report.source || report.name}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 object-contain flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {report.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{report.name}</div>
+                    {report.source && (
+                      <div className="text-xs text-muted-foreground mt-1">{report.source}</div>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}

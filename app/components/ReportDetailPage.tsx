@@ -1,9 +1,18 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
+import Image from "next/image";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { LibrarySidepanel } from "@/app/components/library/LibrarySidepanel";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Download, FileText, MessageSquare } from "lucide-react";
 import { MarkdownContent } from "@/app/components/ui/markdown-content";
 import type { Report } from "@/app/types/reports";
@@ -23,6 +32,8 @@ function formatList(value: string | string[] | undefined): string {
 }
 
 export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: ReportDetailPageProps) {
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+
   const handleDownloadFile = () => {
     if (report.fileUrl) {
       window.open(report.fileUrl, '_blank');
@@ -30,8 +41,7 @@ export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: 
   };
 
   const handleReportTranscript = () => {
-    // TODO: Implement report transcript functionality
-    console.log('Report Transcript clicked for:', report.id);
+    setIsTranscriptOpen(true);
   };
 
   const handleChatWithReport = () => {
@@ -58,10 +68,23 @@ export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: 
           <div className="max-w-4xl mx-auto">
             {/* Header Section */}
             <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">{report.name}</h1>
-              {report.source && (
-                <p className="text-lg text-muted-foreground">{report.source}</p>
-              )}
+              <div className="flex items-center gap-4 mb-2">
+                {report.sourceLogo && (
+                  <Image
+                    src={report.sourceLogo}
+                    alt={report.source || report.name}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 object-contain flex-shrink-0"
+                  />
+                )}
+                <div>
+                  <h1 className="text-3xl font-bold">{report.name}</h1>
+                  {report.source && (
+                    <p className="text-lg text-muted-foreground mt-1">{report.source}</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons Section */}
@@ -78,6 +101,7 @@ export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: 
               <Button
                 variant="outline"
                 onClick={handleReportTranscript}
+                disabled={!report.transcript}
                 className="flex items-center gap-2"
               >
                 <FileText className="h-4 w-4" />
@@ -92,6 +116,25 @@ export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: 
                 Chat with Report
               </Button>
             </div>
+
+            {/* Year and Domain Tags */}
+            {(report.year || (report.subAreaIds ?? []).length > 0) && (
+              <div className="mb-6 flex flex-wrap gap-2">
+                {report.year && (
+                  <Badge variant="default" className="bg-primary text-primary-foreground">
+                    {String(report.year)}
+                  </Badge>
+                )}
+                {(report.subAreaIds ?? [])
+                  .map(id => domainNames[id])
+                  .filter(Boolean)
+                  .map((domainName, index) => (
+                    <Badge key={index} variant="secondary">
+                      {domainName}
+                    </Badge>
+                  ))}
+              </div>
+            )}
 
             {/* Executive Summary Section */}
             {report.summary && (
@@ -127,6 +170,24 @@ export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: 
           </div>
         </div>
       </div>
+
+      {/* Transcript Modal */}
+      <Dialog open={isTranscriptOpen} onOpenChange={setIsTranscriptOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Report Transcript</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              {report.transcript ? (
+                <MarkdownContent content={report.transcript} />
+              ) : (
+                <p className="text-muted-foreground">No transcript available.</p>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
