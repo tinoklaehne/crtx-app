@@ -44,7 +44,7 @@ export async function getAllActors(): Promise<Actor[]> {
     keywords: getField<string | string[]>(record, 'Keywords') ?? undefined,
     competitors: getField<string | string[]>(record, 'Competitors') ?? undefined,
     actionIds: (getField<string[]>(record, '(REL) Actions') ?? []).filter(Boolean),
-    logo: getField<string>(record, 'Logo') ?? getField<string>(record, 'logo') ?? undefined,
+    logo: getField<string>(record, 'Brandfetch Logo') ?? getField<string>(record, 'brandfetch logo') ?? getField<string>(record, 'Logo') ?? undefined,
     iconAi: getIconAiUrl(record),
     iconUrl: getField<string>(record, 'IconUrl') ?? getField<string>(record, 'Icon URL') ?? undefined,
   }));
@@ -68,7 +68,7 @@ export async function getActor(id: string): Promise<Actor | null> {
       keywords: getField<string | string[]>(record, 'Keywords') ?? undefined,
       competitors: getField<string | string[]>(record, 'Competitors') ?? undefined,
       actionIds: (getField<string[]>(record, '(REL) Actions') ?? []).filter(Boolean),
-      logo: getField<string>(record, 'Logo') ?? getField<string>(record, 'logo') ?? undefined,
+      logo: getField<string>(record, 'Brandfetch Logo') ?? getField<string>(record, 'brandfetch logo') ?? getField<string>(record, 'Logo') ?? undefined,
       iconAi: getIconAiUrl(record),
       iconUrl: getField<string>(record, 'IconUrl') ?? getField<string>(record, 'Icon URL') ?? undefined,
     };
