@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
 import { NavItem } from "./NavItem";
-import { Radar, Grid3x3, Users } from "lucide-react";
+import { Radar, Grid3x3, Users, BookOpen } from "lucide-react";
 
 interface NavbarProps {
   activeView?: string;
@@ -25,9 +25,11 @@ export function Navbar({
       ? "domains"
       : pathname?.startsWith("/directory")
         ? "directory"
-        : pathname === "/radars" || pathname === "/radars/"
-          ? "radars"
-          : null;
+        : pathname?.startsWith("/library")
+          ? "library"
+          : pathname === "/radars" || pathname === "/radars/"
+            ? "radars"
+            : null;
 
   return (
     <nav className="w-20 h-screen bg-background border-r flex flex-col">
@@ -52,6 +54,12 @@ export function Navbar({
           isActive={activeMiniApp === 'directory'}
           onClick={() => router.push('/directory')}
           label="Directory"
+        />
+        <NavItem
+          icon={BookOpen}
+          isActive={activeMiniApp === 'library'}
+          onClick={() => router.push('/library')}
+          label="Library"
         />
       </div>
       
