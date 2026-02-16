@@ -1,4 +1,4 @@
-import { getActor, getAllActors } from "@/lib/airtable/actors";
+import { getActor, getAllActors, getActorlistNames } from "@/lib/airtable/actors";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { ActorsSidepanel } from "@/app/components/directory/ActorsSidepanel";
 import { ActorDetailPage } from "@/app/components/ActorDetailPage";
@@ -24,9 +24,10 @@ export default async function ActorDetailRoute({
 }) {
   const { actorId } = await params;
 
-  const [actor, allActors] = await Promise.all([
+  const [actor, allActors, actorlistNames] = await Promise.all([
     getActor(actorId).catch(() => null),
     getAllActors().catch(() => []),
+    getActorlistNames().catch(() => ({})),
   ]);
 
   if (!actor) notFound();
@@ -34,7 +35,7 @@ export default async function ActorDetailRoute({
   return (
     <div className="flex h-screen bg-background text-foreground">
       <Navbar />
-      <ActorsSidepanel actors={allActors} currentActorId={actorId} />
+      <ActorsSidepanel actors={allActors} actorlistNames={actorlistNames} currentActorId={actorId} />
       <ActorDetailPage actor={actor} />
     </div>
   );

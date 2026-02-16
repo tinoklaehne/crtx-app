@@ -61,6 +61,7 @@ async function getAllDomainsUncached(): Promise<BusinessDomain[]> {
       colorCode: getField(record, 'ColorCode') || undefined,
       hierarchy: getField(record, 'Hierarchy') || undefined,
       keywords: getField(record, 'Keywords') || undefined,
+      arenaIds: (getField<string[]>(record, 'REL Arena') ?? []).filter(Boolean),
     }));
   } catch (error) {
     console.error('Error fetching domains:', error);
@@ -100,6 +101,7 @@ export async function getDomain(id: string): Promise<BusinessDomain | null> {
       colorCode: getField(record, 'ColorCode') || undefined,
       hierarchy: getField(record, 'Hierarchy') || undefined,
       keywords: getField(record, 'Keywords') || undefined,
+      arenaIds: (getField<string[]>(record, 'REL Arena') ?? []).filter(Boolean),
     };
   } catch (error: any) {
     if (error.error === 'NOT_FOUND' || error.statusCode === 404) {

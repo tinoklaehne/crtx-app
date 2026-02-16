@@ -22,6 +22,8 @@ export interface BusinessDomain {
   hierarchy?: string;
   /** From Airtable "Keywords" – for tooltip */
   keywords?: string | string[];
+  /** From Airtable "REL Arena" – linked record IDs (for Arena filter) */
+  arenaIds?: string[];
   // Additional fields that may exist in Airtable
   [key: string]: any;
 }

@@ -8,16 +8,18 @@ import type { Actor } from "@/app/types/actors";
 
 interface DirectoryListPageProps {
   initialActors: Actor[];
+  /** Map of actorlist record id → name (watchlist labels) */
+  actorlistNames?: Record<string, string>;
   loadError?: boolean;
 }
 
-export function DirectoryListPage({ initialActors, loadError }: DirectoryListPageProps) {
+export function DirectoryListPage({ initialActors, actorlistNames = {}, loadError }: DirectoryListPageProps) {
   const router = useRouter();
 
   return (
     <div className="flex h-screen bg-background text-foreground">
       <Navbar />
-      <ActorsSidepanel actors={initialActors} />
+      <ActorsSidepanel actors={initialActors} actorlistNames={actorlistNames} />
       <div className="flex-1 overflow-auto flex items-center justify-center p-6">
         {loadError ? (
           <div className="max-w-sm text-center space-y-4">

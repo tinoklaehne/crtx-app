@@ -18,6 +18,8 @@ type SortOrder = "asc" | "desc";
 
 interface DomainsListPageProps {
   initialDomains: DomainWithMomentum[];
+  /** Map of record id → name for Arena filter labels (from full Domains table) */
+  arenaNames?: Record<string, string>;
 }
 
 function MomentumSparkline({ data }: { data: { period: string; count: number }[] }) {
@@ -86,7 +88,7 @@ function SortHeader({
   );
 }
 
-export function DomainsListPage({ initialDomains }: DomainsListPageProps) {
+export function DomainsListPage({ initialDomains, arenaNames = {} }: DomainsListPageProps) {
   const router = useRouter();
   const [domains] = useState<DomainWithMomentum[]>(initialDomains);
   const [searchQuery, setSearchQuery] = useState("");
@@ -150,7 +152,7 @@ export function DomainsListPage({ initialDomains }: DomainsListPageProps) {
     <div className="flex h-screen bg-background text-foreground">
       <Navbar />
       {domains.length > 0 && (
-        <DomainsSidepanel domains={domains} />
+        <DomainsSidepanel domains={domains} arenaNames={arenaNames} />
       )}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
