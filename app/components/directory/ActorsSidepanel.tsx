@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel } from "../ui/resizable-panel";
@@ -152,7 +153,24 @@ export function ActorsSidepanel({ actors, actorlistNames = {}, currentActorId }:
                   ${isActive ? "bg-secondary" : "hover:bg-secondary/50"}
                 `}
               >
-                <div className="font-medium text-sm">{actor.name}</div>
+                <div className="flex items-center gap-3">
+                  {actor.logo ? (
+                    <Image
+                      src={actor.logo}
+                      alt={actor.name}
+                      width={24}
+                      height={24}
+                      className="w-6 h-6 object-contain flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-6 h-6 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs text-muted-foreground">
+                        {actor.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="font-medium text-sm">{actor.name}</div>
+                </div>
               </div>
             );
           })}

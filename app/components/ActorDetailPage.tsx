@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Info, Database, DollarSign, FileText, Sparkles, Leaf } from "lucide-react";
 import type { Actor } from "@/app/types/actors";
 import type { DomainContentItem } from "@/app/types/domainContent";
@@ -29,7 +30,18 @@ export function ActorDetailPage({ actor, actions = [], domainNames = {} }: Actor
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-6">{actor.name}</h1>
+        <div className="flex items-center gap-4 mb-6">
+          {actor.logo && (
+            <Image
+              src={actor.logo}
+              alt={actor.name}
+              width={48}
+              height={48}
+              className="w-12 h-12 object-contain flex-shrink-0"
+            />
+          )}
+          <h1 className="text-2xl font-semibold">{actor.name}</h1>
+        </div>
 
         {/* Tabs Container */}
         <div className="border rounded-lg bg-card">
