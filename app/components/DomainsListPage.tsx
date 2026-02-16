@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
@@ -152,7 +152,9 @@ export function DomainsListPage({ initialDomains, arenaNames = {} }: DomainsList
     <div className="flex h-screen bg-background text-foreground">
       <Navbar />
       {domains.length > 0 && (
-        <DomainsSidepanel domains={domains} arenaNames={arenaNames} />
+        <Suspense fallback={<div className="w-64 border-r bg-card" />}>
+          <DomainsSidepanel domains={domains} arenaNames={arenaNames} />
+        </Suspense>
       )}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">

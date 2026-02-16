@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
 import { Info } from "lucide-react";
 import { Navbar } from "@/app/components/layout/Navbar";
@@ -57,7 +57,9 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
       <Navbar />
       {/* Show DomainsSidepanel for all tabs */}
       {allDomains.length > 0 && (
-        <DomainsSidepanel domains={allDomains} currentDomainId={domain.id} arenaNames={arenaNames} />
+        <Suspense fallback={<div className="w-64 border-r bg-card" />}>
+          <DomainsSidepanel domains={allDomains} currentDomainId={domain.id} arenaNames={arenaNames} />
+        </Suspense>
       )}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
