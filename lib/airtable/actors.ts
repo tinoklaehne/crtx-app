@@ -1,6 +1,21 @@
 import { getBase, getField, fetchWithRetry } from './utils';
 import type { Actor } from '@/app/types/actors';
 import type { DomainContentItem } from '@/app/types/domainContent';
+import type { AirtableAttachment } from '@/app/types/airtable';
+
+// Icon AI: Airtable can store URL string or attachment(s). Return first URL.
+function getIconAiUrl(record: any): string | undefined {
+  const val = getField(record, 'Icon AI') ?? getField(record, 'IconAI');
+  if (typeof val === 'string' && val.startsWith('http')) return val;
+  if (Array.isArray(val) && val.length > 0) {
+    const first = val[0] as { url?: string } | null;
+    if (first?.url) return first.url;
+  }
+  if (val && typeof val === 'object' && 'url' in val && typeof (val as { url: string }).url === 'string') {
+    return (val as { url: string }).url;
+  }
+  return undefined;
+}
 
 const ACTORS_TABLE = 'tblFiHksu7YbAFvQw';
 const ACTORLISTS_TABLE = 'tblk1fsb6Gr5DoN9v';
@@ -29,6 +44,9 @@ export async function getAllActors(): Promise<Actor[]> {
     keywords: getField<string | string[]>(record, 'Keywords') ?? undefined,
     competitors: getField<string | string[]>(record, 'Competitors') ?? undefined,
     actionIds: (getField<string[]>(record, '(REL) Actions') ?? []).filter(Boolean),
+    iconAi: getIconAiUrl(record),
+    iconUrl: getField<string>(record, 'IconUrl') ?? getField<string>(record, 'Icon URL') ?? undefined,
+    logo: getField<string>(record, 'Logo') ?? getField<string>(record, 'logo') ?? undefined,
   }));
 }
 
@@ -50,6 +68,9 @@ export async function getActor(id: string): Promise<Actor | null> {
       keywords: getField<string | string[]>(record, 'Keywords') ?? undefined,
       competitors: getField<string | string[]>(record, 'Competitors') ?? undefined,
       actionIds: (getField<string[]>(record, '(REL) Actions') ?? []).filter(Boolean),
+      iconAi: getIconAiUrl(record),
+      iconUrl: getField<string>(record, 'IconUrl') ?? getField<string>(record, 'Icon URL') ?? undefined,
+      logo: getField<string>(record, 'Logo') ?? getField<string>(record, 'logo') ?? undefined,
     };
   } catch (error) {
     console.error('Error fetching actor:', error);
@@ -182,6 +203,66 @@ export async function getActorActions(actorId: string): Promise<DomainContentIte
     }
     return [];
   }
+}
+
+/** Get unique domain IDs for multiple actors (for table display).
+ * Fetches actions in batches to get domain information efficiently. */
+export async function getActorsDomains(actorIds: string[]): Promise<Record<string, string[]>> {
+  const actorToDomains: Record<string, string[]> = {};
+  if (!actorIds || actorIds.length === 0) return actorToDomains;
+
+  try {
+    const base = getBase();
+    // Fetch all actor records to get their action IDs
+    const actorRecords = await fetchRecordsByIds(ACTORS_TABLE, actorIds);
+    
+    // Collect all action IDs
+    const allActionIds = new Set<string>();
+    const actorActionMap = new Map<string, string[]>();
+    
+    actorRecords.forEach(actorRecord => {
+      const actionIds = (getField<string[]>(actorRecord, '(REL) Actions') ?? 
+                        getField<string[]>(actorRecord, 'REL_Actions') ?? 
+                        getField<string[]>(actorRecord, 'Actions') ?? 
+                        getField<string[]>(actorRecord, 'REL Actions') ?? 
+                        []).filter(Boolean);
+      actorActionMap.set(actorRecord.id, actionIds);
+      actionIds.forEach(id => allActionIds.add(id));
+    });
+
+    // Fetch all actions in batches
+    const actionRecords = await fetchRecordsByIds(ACTIONS_TABLE, Array.from(allActionIds));
+    
+    // Build action ID to domain ID map
+    const actionToDomain = new Map<string, string>();
+    actionRecords.forEach(actionRecord => {
+      const domainField = 
+        getField<string | string[]>(actionRecord, '(REL) Sub-Area') ??
+        getField<string | string[]>(actionRecord, 'REL Sub-Area') ??
+        getField<string | string[]>(actionRecord, 'Sub-Area') ??
+        undefined;
+      const domainId = Array.isArray(domainField) ? domainField[0] : domainField;
+      if (domainId) {
+        actionToDomain.set(actionRecord.id, domainId);
+      }
+    });
+
+    // Build actor to domains map
+    actorActionMap.forEach((actionIds, actorId) => {
+      const domainIds = new Set<string>();
+      actionIds.forEach(actionId => {
+        const domainId = actionToDomain.get(actionId);
+        if (domainId) domainIds.add(domainId);
+      });
+      actorToDomains[actorId] = Array.from(domainIds);
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Failed to fetch actors domains:', error);
+    }
+  }
+
+  return actorToDomains;
 }
 
 /** Actorlists table: column used for the watchlist label (must match Airtable exactly). */
