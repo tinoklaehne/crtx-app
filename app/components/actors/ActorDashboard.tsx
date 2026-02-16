@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
+import { PieChart as PieChartIcon, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,7 +31,7 @@ const COLORS = [
 ];
 
 export function ActorDashboard({ actions, domainNames = {} }: ActorDashboardProps) {
-  const [activeTab, setActiveTab] = useState<"dynamics" | "timeline">("dynamics");
+  const [activeTab, setActiveTab] = useState<"portfolio" | "timeline">("portfolio");
 
   // Calculate total signals
   const totalSignals = actions.length;
@@ -116,18 +117,20 @@ export function ActorDashboard({ actions, domainNames = {} }: ActorDashboardProp
 
   return (
     <div className="border rounded-lg bg-card mt-8">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "dynamics" | "timeline")} className="w-full">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "portfolio" | "timeline")} className="w-full">
         <TabsList className="w-full justify-start rounded-t-lg rounded-b-none border-b bg-muted/50 h-auto p-0">
-          <TabsTrigger value="dynamics" className="gap-2">
-            Innovation Dynamics
+          <TabsTrigger value="portfolio" className="gap-2">
+            <PieChartIcon className="h-4 w-4" />
+            Innovation Portfolio
           </TabsTrigger>
           <TabsTrigger value="timeline" className="gap-2">
+            <TrendingUp className="h-4 w-4" />
             Innovation Timeline
           </TabsTrigger>
         </TabsList>
 
-        {/* Innovation Dynamics Tab */}
-        <TabsContent value="dynamics" className="p-6 m-0">
+        {/* Innovation Portfolio Tab */}
+        <TabsContent value="portfolio" className="p-6 m-0">
           <div className="space-y-6">
             {/* Summary Stats */}
             <div className="grid gap-4 md:grid-cols-2">
