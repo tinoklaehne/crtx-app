@@ -7,7 +7,6 @@ import { Navbar } from "@/app/components/layout/Navbar";
 import { ActorsSidepanel } from "@/app/components/directory/ActorsSidepanel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { DropdownFilter, type FilterCategory } from "@/components/ui/dropdown-filter";
 import type { Actor } from "@/app/types/actors";
@@ -220,10 +219,6 @@ export function DirectoryListPage({
     setPage(1);
   };
 
-  // Get unique domains for an actor (from pre-fetched data)
-  const getActorDomains = (actor: Actor): string[] => {
-    return actorsDomains[actor.id] || [];
-  };
 
   if (loadError) {
     return (
@@ -255,7 +250,6 @@ export function DirectoryListPage({
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold mb-4">ACTORS</h1>
             <div className="flex gap-4 items-center">
               <div className="flex-1">
                 <Input
@@ -321,13 +315,12 @@ export function DirectoryListPage({
                       onSort={handleSort}
                       align="left"
                     />
-                    <th className="p-4 font-semibold text-left">AREA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedActors.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
                         {searchQuery || Object.values(selectedFilters).some(f => f.length > 0)
                           ? "No actors found matching your search."
                           : "No actors available."}
@@ -336,7 +329,6 @@ export function DirectoryListPage({
                   ) : (
                     paginatedActors.map((actor) => {
                       const signalsCount = actor.actionIds?.length || 0;
-                      const actorDomains = getActorDomains(actor);
                       return (
                         <tr
                           key={actor.id}
@@ -344,9 +336,9 @@ export function DirectoryListPage({
                           onClick={() => router.push(`/directory/${actor.id}`)}
                         >
                           <td className="p-4 text-center">
-                            {(actor.iconAi ?? actor.iconUrl ?? actor.logo) ? (
+                            {actor.logo ? (
                               <Image
-                                src={actor.iconAi ?? actor.iconUrl ?? actor.logo!}
+                                src={actor.logo}
                                 alt={actor.name}
                                 width={32}
                                 height={32}
@@ -376,23 +368,6 @@ export function DirectoryListPage({
                           </td>
                           <td className="p-4">
                             {actor.typeMain || "-"}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex flex-wrap gap-1.5">
-                              {actorDomains.length > 0 ? (
-                                actorDomains.map((domainId) => (
-                                  <Badge
-                                    key={domainId}
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {domainNames[domainId] || domainId}
-                                  </Badge>
-                                ))
-                              ) : (
-                                <span className="text-sm text-muted-foreground">-</span>
-                              )}
-                            </div>
                           </td>
                         </tr>
                       );
