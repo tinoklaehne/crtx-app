@@ -20,10 +20,6 @@ interface DirectoryListPageProps {
   initialActors: Actor[];
   /** Map of actorlist record id → name (watchlist labels) */
   actorlistNames?: Record<string, string>;
-  /** Map of domain id → name for AREA column */
-  domainNames?: Record<string, string>;
-  /** Map of actor id → array of domain IDs */
-  actorsDomains?: Record<string, string[]>;
   loadError?: boolean;
 }
 
@@ -62,8 +58,6 @@ function SortHeader({
 export function DirectoryListPage({ 
   initialActors, 
   actorlistNames = {}, 
-  domainNames = {},
-  actorsDomains = {},
   loadError 
 }: DirectoryListPageProps) {
   const router = useRouter();
