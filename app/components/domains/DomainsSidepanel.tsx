@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel } from "../ui/resizable-panel";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { BusinessDomain } from "@/app/types/businessDomains";
 import {
   DropdownFilter,
@@ -41,8 +41,36 @@ function buildDomainsFilterCategories(
 export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentDomainId }: DomainsSidepanelProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
+  const searchParams = useSearchParams();
+
+  const parseFiltersFromUrl = (): Record<string, string[]> => {
+    const filters: Record<string, string[]> = {};
+    const arenaParam = searchParams.get("arena");
+    if (arenaParam) {
+      filters.arena = arenaParam.split(",").filter(Boolean);
+    }
+    return filters;
+  };
+
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>(parseFiltersFromUrl);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) {
+      params.set("q", searchQuery);
+    }
+    const arenaSel = selectedFilters.arena;
+    if (arenaSel?.length) {
+      params.set("arena", arenaSel.join(","));
+    }
+    const newQuery = params.toString();
+    const currentQuery = searchParams.toString();
+    if (newQuery !== currentQuery) {
+      const newUrl = `${pathname}${newQuery ? `?${newQuery}` : ""}`;
+      router.replace(newUrl, { scroll: false });
+    }
+  }, [searchQuery, selectedFilters, pathname, router, searchParams]);
 
   const arenaNames = useMemo(() => {
     if (arenaNamesProp && Object.keys(arenaNamesProp).length > 0) return arenaNamesProp;
@@ -70,7 +98,8 @@ export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentD
   }, [domains, searchQuery, selectedFilters]);
 
   const handleDomainClick = (domainId: string) => {
-    router.push(`/domains/${domainId}`);
+    const params = new URLSearchParams(searchParams.toString());
+    router.push(`/domains/${domainId}${params.toString() ? `?${params.toString()}` : ""}`);
   };
 
   return (

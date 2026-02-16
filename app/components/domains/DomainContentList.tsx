@@ -21,19 +21,24 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { ExternalLink } from "lucide-react";
+import { DropdownFilter, type FilterCategory } from "@/components/ui/dropdown-filter";
 
 interface DomainContentListProps {
   items: DomainContentItem[];
+  itemsPerPage?: number;
+  domainNames?: Record<string, string>;
 }
 
 type SortOrder = "newest" | "oldest";
 
-export function DomainContentList({ items }: DomainContentListProps) {
+export function DomainContentList({ items, itemsPerPage = 25, domainNames = {} }: DomainContentListProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSignalType, setSelectedSignalType] = useState<string>("all");
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({
+    signalType: [],
+    domain: [],
+  });
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 25;
 
   // Get unique signal types for filter
   const signalTypes = useMemo(() => {
@@ -45,6 +50,49 @@ export function DomainContentList({ items }: DomainContentListProps) {
     });
     return Array.from(types).sort();
   }, [items]);
+
+  // Get unique domains for filter
+  const uniqueDomains = useMemo(() => {
+    const domainSet = new Set<string>();
+    items.forEach(item => {
+      const domainId = item.metadata?.domainId;
+      if (domainId && domainNames[domainId]) {
+        domainSet.add(domainId);
+      }
+    });
+    return Array.from(domainSet);
+  }, [items, domainNames]);
+
+  // Build filter categories
+  const filterCategories = useMemo<FilterCategory[]>(() => {
+    const categories: FilterCategory[] = [];
+
+    // Signal Type category
+    if (signalTypes.length > 0) {
+      categories.push({
+        id: 'signalType',
+        label: 'Signal Type',
+        options: signalTypes.map(type => ({
+          value: type,
+          label: type,
+        })),
+      });
+    }
+
+    // Domain category
+    if (uniqueDomains.length > 0) {
+      categories.push({
+        id: 'domain',
+        label: 'Domain',
+        options: uniqueDomains.map(domainId => ({
+          value: domainId,
+          label: domainNames[domainId] || domainId,
+        })),
+      });
+    }
+
+    return categories;
+  }, [signalTypes, uniqueDomains, domainNames]);
 
   // Filter and sort items
   const filteredAndSortedItems = useMemo(() => {
@@ -61,8 +109,20 @@ export function DomainContentList({ items }: DomainContentListProps) {
     }
 
     // Signal type filter
-    if (selectedSignalType !== "all") {
-      filtered = filtered.filter(item => item.signalType === selectedSignalType);
+    const selectedSignalTypes = selectedFilters.signalType || [];
+    if (selectedSignalTypes.length > 0) {
+      filtered = filtered.filter(item => 
+        item.signalType && selectedSignalTypes.includes(item.signalType)
+      );
+    }
+
+    // Domain filter
+    const selectedDomains = selectedFilters.domain || [];
+    if (selectedDomains.length > 0) {
+      filtered = filtered.filter(item => {
+        const domainId = item.metadata?.domainId;
+        return domainId && selectedDomains.includes(domainId);
+      });
     }
 
     // Sort by date (newest first by default)
@@ -82,7 +142,7 @@ export function DomainContentList({ items }: DomainContentListProps) {
     });
 
     return filtered;
-  }, [items, searchQuery, selectedSignalType, sortOrder]);
+  }, [items, searchQuery, selectedFilters, sortOrder]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
@@ -93,7 +153,7 @@ export function DomainContentList({ items }: DomainContentListProps) {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedSignalType, sortOrder]);
+  }, [searchQuery, selectedFilters, sortOrder]);
 
   if (items.length === 0) {
     return (
@@ -123,22 +183,21 @@ export function DomainContentList({ items }: DomainContentListProps) {
             />
           </div>
 
-          {/* Signal Type Filter */}
-          <div className="w-full sm:w-48 flex-shrink-0">
-            <Select value={selectedSignalType} onValueChange={setSelectedSignalType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {signalTypes.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Filter Dropdown */}
+          {filterCategories.length > 0 && (
+            <div className="flex-shrink-0">
+              <DropdownFilter
+                categories={filterCategories}
+                selected={selectedFilters}
+                onSelectionChange={setSelectedFilters}
+                triggerLabel="Filter"
+                showSearch={true}
+                searchPlaceholder="Search filters..."
+                clearAllLabel="Clear all"
+                doneLabel="Done"
+              />
+            </div>
+          )}
 
           {/* Sort */}
           <div className="w-full sm:w-48 flex-shrink-0">
@@ -193,12 +252,19 @@ export function DomainContentList({ items }: DomainContentListProps) {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  {/* Signal Type Tag - displayed above headline */}
-                  {item.signalType && (
-                    <div className="mb-2">
-                      <Badge variant="outline" className="text-xs">
-                        {item.signalType}
-                      </Badge>
+                  {/* Signal Type and Domain Tags - displayed above headline */}
+                  {(item.signalType || item.metadata?.domainId) && (
+                    <div className="mb-2 flex items-center gap-2 flex-wrap">
+                      {item.signalType && (
+                        <Badge variant="outline" className="text-xs">
+                          {item.signalType}
+                        </Badge>
+                      )}
+                      {item.metadata?.domainId && domainNames[item.metadata.domainId] && (
+                        <Badge variant="secondary" className="text-xs">
+                          {domainNames[item.metadata.domainId]}
+                        </Badge>
+                      )}
                     </div>
                   )}
                   {/* Headline */}

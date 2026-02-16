@@ -122,5 +122,8 @@ export default async function DomainDetailRoute({
   console.log(`Sample trend clusterIds:`, trends.slice(0, 5).map(t => ({ name: t.name, clusterId: t.clusterId, domain: t.domain })));
 
   const subAreaDomains = allDomains.filter(d => (d.hierarchy || '').trim() === 'Sub-Area');
-  return <DomainDetailPage domain={domain} content={content} trends={trends} clusters={clusters} allDomains={subAreaDomains} />;
+  const arenaNames = Object.fromEntries(
+    (allDomains || []).map((d) => [d.id, d.name ?? ""])
+  );
+  return <DomainDetailPage domain={domain} content={content} trends={trends} clusters={clusters} allDomains={subAreaDomains} arenaNames={arenaNames} />;
 }

@@ -26,6 +26,8 @@ interface DomainDetailPageProps {
   trends?: Trend[];
   clusters?: Cluster[];
   allDomains?: BusinessDomain[];
+  /** Map of record id → name for Arena filter labels (from full Domains table) */
+  arenaNames?: Record<string, string>;
 }
 
 function formatKeywords(keywords: BusinessDomain["keywords"]): string {
@@ -34,7 +36,7 @@ function formatKeywords(keywords: BusinessDomain["keywords"]): string {
   return String(keywords).trim();
 }
 
-export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [] }: DomainDetailPageProps) {
+export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {} }: DomainDetailPageProps) {
   const [activeTab, setActiveTab] = useState<DomainTab>("now");
 
   const getActiveTabItems = () => {
@@ -55,7 +57,7 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
       <Navbar />
       {/* Show DomainsSidepanel for all tabs */}
       {allDomains.length > 0 && (
-        <DomainsSidepanel domains={allDomains} currentDomainId={domain.id} />
+        <DomainsSidepanel domains={allDomains} currentDomainId={domain.id} arenaNames={arenaNames} />
       )}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
