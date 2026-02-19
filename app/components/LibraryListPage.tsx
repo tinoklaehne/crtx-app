@@ -7,6 +7,7 @@ import { Navbar } from "@/app/components/layout/Navbar";
 import { LibrarySidepanel } from "@/app/components/library/LibrarySidepanel";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import type { FilterCategory } from "@/components/ui/dropdown-filter";
 import type { Report } from "@/app/types/reports";
 
 const PAGE_SIZE = 15;
