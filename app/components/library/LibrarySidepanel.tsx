@@ -92,7 +92,6 @@ export function LibrarySidepanel({
 
   const isControlled = onShowSubscribedOnlyChange != null;
   const showSubscribedOnly = isControlled ? (controlledShowSubscribedOnly ?? false) : internalShowSubscribedOnly;
-  const subscribedReportIds = isControlled ? (controlledSubscribedReportIds ?? []) : internalSubscribedReportIds;
 
   useEffect(() => {
     if (isControlled) return;
@@ -157,15 +156,25 @@ export function LibrarySidepanel({
       });
     }
     
-    // My Reports filter - must be applied last
-    if (showSubscribedOnly) {
-      // Create a Set for faster lookup
-      const subscribedSet = new Set(subscribedReportIds);
+    // My Reports filter - must be applied last (compute inside useMemo for stable deps)
+    const showOnly = isControlled ? (controlledShowSubscribedOnly ?? false) : internalShowSubscribedOnly;
+    const ids = isControlled ? (controlledSubscribedReportIds ?? []) : internalSubscribedReportIds;
+    if (showOnly) {
+      const subscribedSet = new Set(ids);
       list = list.filter((report) => subscribedSet.has(report.id));
     }
     
     return list;
-  }, [reports, searchQuery, selectedFilters, showSubscribedOnly, subscribedReportIds]);
+  }, [
+    reports,
+    searchQuery,
+    selectedFilters,
+    isControlled,
+    controlledShowSubscribedOnly,
+    controlledSubscribedReportIds,
+    internalShowSubscribedOnly,
+    internalSubscribedReportIds,
+  ]);
 
   const handleReportClick = (reportId: string) => {
     router.push(`/library/${reportId}`);

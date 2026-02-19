@@ -78,16 +78,13 @@ export async function updateUser(
     if (updates.libraryAccess !== undefined)
       fields["Library"] = updates.libraryAccess;
 
-    const [updated] = await fetchWithRetry(() =>
-      base(USERS_TABLE).update([
-        {
-          id: userId,
-          fields,
-        },
-      ])
+    const table = base(USERS_TABLE) as { update: (records: { id: string; fields: Record<string, unknown> }[]) => Promise<unknown> };
+    const result = await fetchWithRetry(() =>
+      table.update([{ id: userId, fields }])
     );
-
-    return mapRecordToUser(updated);
+    const updated = Array.isArray(result) ? result[0] : result;
+    if (!updated) return null;
+    return mapRecordToUser(updated as any);
   } catch (error) {
     console.error("Error updating user:", error);
     return null;
@@ -105,17 +102,13 @@ async function updateUserSubscriptions(
 ): Promise<string[]> {
   try {
     const base = getBase();
-    const [updated] = await fetchWithRetry(() =>
-      base(USERS_TABLE).update([
-        {
-          id: userId,
-          fields: {
-            My_Domains: subscribedDomainIds,
-          },
-        },
-      ])
+    const table = base(USERS_TABLE) as { update: (records: { id: string; fields: Record<string, unknown> }[]) => Promise<unknown> };
+    const result = await fetchWithRetry(() =>
+      table.update([{ id: userId, fields: { My_Domains: subscribedDomainIds } }])
     );
-    const user = mapRecordToUser(updated);
+    const updated = Array.isArray(result) ? result[0] : result;
+    if (!updated) return [];
+    const user = mapRecordToUser(updated as any);
     return user.subscribedDomainIds;
   } catch (error) {
     console.error("Error updating user subscriptions:", error);
@@ -154,17 +147,13 @@ async function updateUserReportBookmarks(
 ): Promise<string[]> {
   try {
     const base = getBase();
-    const [updated] = await fetchWithRetry(() =>
-      base(USERS_TABLE).update([
-        {
-          id: userId,
-          fields: {
-            My_Reports: subscribedReportIds,
-          },
-        },
-      ])
+    const table = base(USERS_TABLE) as { update: (records: { id: string; fields: Record<string, unknown> }[]) => Promise<unknown> };
+    const result = await fetchWithRetry(() =>
+      table.update([{ id: userId, fields: { My_Reports: subscribedReportIds } }])
     );
-    const user = mapRecordToUser(updated);
+    const updated = Array.isArray(result) ? result[0] : result;
+    if (!updated) return [];
+    const user = mapRecordToUser(updated as any);
     return user.subscribedReportIds;
   } catch (error) {
     console.error("Error updating user report bookmarks:", error);
