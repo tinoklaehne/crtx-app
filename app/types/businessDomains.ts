@@ -24,6 +24,8 @@ export interface BusinessDomain {
   keywords?: string | string[];
   /** From Airtable "REL Arena" – linked record IDs (for Arena filter) */
   arenaIds?: string[];
+  /** From Airtable "Sparkline" – past 12 months counts for sparkline chart */
+  sparkline?: number[];
   // Additional fields that may exist in Airtable
   [key: string]: any;
 }

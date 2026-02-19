@@ -62,11 +62,36 @@ async function getAllDomainsUncached(): Promise<BusinessDomain[]> {
       hierarchy: getField(record, 'Hierarchy') || undefined,
       keywords: getField(record, 'Keywords') || undefined,
       arenaIds: (getField<string[]>(record, 'REL Arena') ?? []).filter(Boolean),
+      sparkline: parseSparklineField(getField(record, 'Sparkline')),
     }));
   } catch (error) {
     console.error('Error fetching domains:', error);
     return [];
   }
+}
+
+/** Parse "Sparkline" column: array of numbers, or comma-separated string, or JSON string. Returns up to 12 values (past 12 months). */
+function parseSparklineField(val: unknown): number[] | undefined {
+  if (Array.isArray(val)) {
+    const nums = val.map((v: unknown) => (typeof v === 'number' && !isNaN(v)) ? v : (typeof v === 'string' ? parseFloat(v) : NaN)).filter(n => !isNaN(n));
+    return nums.length > 0 ? nums : undefined;
+  }
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return undefined;
+    if (trimmed.startsWith('[')) {
+      try {
+        const arr = JSON.parse(trimmed) as unknown[];
+        const nums = arr.map((v: unknown) => (typeof v === 'number' && !isNaN(v)) ? v : (typeof v === 'string' ? parseFloat(v) : NaN)).filter(n => !isNaN(n));
+        return nums.length > 0 ? nums : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    const nums = trimmed.split(/[\s,;]+/).map(s => parseFloat(s)).filter(n => !isNaN(n));
+    return nums.length > 0 ? nums : undefined;
+  }
+  return undefined;
 }
 
 /** Fetch all business domains from taxonomy table. Cached for 1 hour. */
@@ -113,7 +138,16 @@ export async function getDomain(id: string): Promise<BusinessDomain | null> {
   }
 }
 
-/** Build momentum sparkline from domain table columns only (no extra API calls). Uses Total Actions Month, Quarter, Total for a 3-point trend. */
+/** Build momentum sparkline from "Sparkline" column (past 12 months). Labels: M1 (oldest) … M12 (newest). */
+function buildMomentumFromSparkline(sparkline: number[]): MomentumDataPoint[] {
+  const max = Math.min(sparkline.length, 12);
+  return sparkline.slice(0, max).map((count, i) => ({
+    period: `M${i + 1}`,
+    count: Number(count) || 0,
+  }));
+}
+
+/** Fallback: build a 3-point trend from Total Actions Month, Quarter, Total when Sparkline is missing. */
 function buildMomentumFromDomainFields(domain: BusinessDomain): MomentumDataPoint[] {
   const month = domain.signalsMonth ?? 0;
   const quarter = domain.signalsQuarter ?? 0;
@@ -126,13 +160,15 @@ function buildMomentumFromDomainFields(domain: BusinessDomain): MomentumDataPoin
   ];
 }
 
-/** Fetch all domains with momentum; only returns Hierarchy === "Sub-Area". Momentum from domain table fields (fast, no per-domain content fetch). */
+/** Fetch all domains with momentum; only returns Hierarchy === "Sub-Area". Uses "Sparkline" column when present, else fallback. */
 export async function getDomainsWithMomentum(): Promise<DomainWithMomentum[]> {
   const domains = await getAllDomains();
   const subAreaOnly = domains.filter(d => (d.hierarchy || '').trim() === 'Sub-Area');
   return subAreaOnly.map(domain => ({
     ...domain,
-    momentumData: buildMomentumFromDomainFields(domain),
+    momentumData: (domain.sparkline && domain.sparkline.length > 0)
+      ? buildMomentumFromSparkline(domain.sparkline)
+      : buildMomentumFromDomainFields(domain),
   }));
 }
 

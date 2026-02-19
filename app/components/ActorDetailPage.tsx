@@ -178,21 +178,26 @@ export function ActorDetailPage({ actor, actions = [], domainNames = {} }: Actor
           </Tabs>
         </div>
 
-        {/* Stats and Charts Section */}
-        {actions.length > 0 && (
-          <ActorDashboard actions={actions} domainNames={domainNames} />
-        )}
+        {/* Innovation Portfolio / Timeline and Latest Signals – only on General Info */}
+        {activeTab === "general" && (
+          <>
+            {/* Stats and Charts Section */}
+            {actions.length > 0 && (
+              <ActorDashboard actions={actions} domainNames={domainNames} />
+            )}
 
-        {/* Latest News Section */}
-        <div className="mt-8">
-          {actions.length > 0 ? (
-            <DomainContentList items={actions} itemsPerPage={10} domainNames={domainNames} />
-          ) : (
-            <div className="border rounded-lg bg-card p-8 text-center text-muted-foreground">
-              <p>No signals available for this actor.</p>
+            {/* Latest Signals Section */}
+            <div className="mt-8">
+              {actions.length > 0 ? (
+                <DomainContentList items={actions} itemsPerPage={10} domainNames={domainNames} />
+              ) : (
+                <div className="border rounded-lg bg-card p-8 text-center text-muted-foreground">
+                  <p>No signals available for this actor.</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

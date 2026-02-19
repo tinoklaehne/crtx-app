@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Trend Radar',
-  description: 'Interactive technology trend radar visualization',
+  title: 'CRTX - Strategic Intelligence',
+  description: 'CRTX Strategic Intelligence – interactive technology trend radar, domains, directory, and report library',
 };
 
 export default function RootLayout({

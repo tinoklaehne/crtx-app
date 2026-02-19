@@ -5,10 +5,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { LibrarySidepanel } from "@/app/components/library/LibrarySidepanel";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { DropdownFilter, type FilterCategory } from "@/components/ui/dropdown-filter";
 import type { Report } from "@/app/types/reports";
 
 const PAGE_SIZE = 15;
@@ -240,33 +238,6 @@ export function LibraryListPage({
       </Suspense>
       <div className="flex-1 overflow-auto">
         <div className="p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">Library</h1>
-            <div className="flex items-center gap-3">
-              <Input
-                placeholder="Search reports..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(1);
-                }}
-                className="w-64"
-              />
-              <DropdownFilter
-                categories={filterCategories}
-                selected={selectedFilters}
-                onSelectionChange={(newFilters) => {
-                  setSelectedFilters(newFilters);
-                  setPage(1);
-                }}
-                triggerLabel="Filter"
-                searchPlaceholder="Search"
-                clearAllLabel="Clear all"
-                doneLabel="Done"
-              />
-            </div>
-          </div>
-
           {loadError ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">Failed to load reports.</p>
@@ -313,9 +284,7 @@ export function LibraryListPage({
                     {paginatedReports.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                          {searchQuery || activeFilterCount > 0
-                            ? "No reports found matching your filters."
-                            : "No reports available."}
+                          No reports available.
                         </td>
                       </tr>
                     ) : (

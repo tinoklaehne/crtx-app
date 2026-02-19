@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useId } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { DomainsSidepanel } from "@/app/components/domains/DomainsSidepanel";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type { DomainWithMomentum } from "@/app/types/businessDomains";
 
@@ -23,14 +22,21 @@ interface DomainsListPageProps {
 }
 
 function MomentumSparkline({ data }: { data: { period: string; count: number }[] }) {
+  const gradientId = `sparkline-${useId().replace(/:/g, '')}`;
   if (!data || data.length === 0) {
     return <div className="h-8 w-full flex items-center justify-center text-muted-foreground text-xs">—</div>;
   }
   const maxCount = Math.max(1, ...data.map(d => d.count));
   return (
-    <div className="h-8 w-24 min-w-[96px]" title={data.map(d => `${d.period}: ${d.count}`).join("\n")}>
+    <div className="h-8 w-24 min-w-[96px] bg-background" title={data.map(d => `${d.period}: ${d.count}`).join("\n")}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+        <AreaChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 2 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+            </linearGradient>
+          </defs>
           <XAxis dataKey="period" hide />
           <YAxis hide domain={[0, maxCount]} />
           <Tooltip
@@ -42,15 +48,17 @@ function MomentumSparkline({ data }: { data: { period: string; count: number }[]
               ) : null
             }
           />
-          <Line
-            type="monotone"
+          <Area
+            type="linear"
             dataKey="count"
             stroke="hsl(var(--primary))"
-            strokeWidth={2}
-            dot={false}
+            strokeWidth={1.5}
+            fill={`url(#${gradientId})`}
+            dot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 2 }}
+            activeDot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 3 }}
             isAnimationActive={false}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );
@@ -158,20 +166,6 @@ export function DomainsListPage({ initialDomains, arenaNames = {} }: DomainsList
       )}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-4 flex gap-4">
-            <div className="flex-1">
-              <Input
-                placeholder="Search domains..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(1);
-                }}
-                className="max-w-md"
-              />
-            </div>
-          </div>
-
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -208,7 +202,7 @@ export function DomainsListPage({ initialDomains, arenaNames = {} }: DomainsList
                   {paginatedDomains.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                        {searchQuery ? "No domains found matching your search." : "No domains available."}
+                        No domains available.
                       </td>
                     </tr>
                   ) : (

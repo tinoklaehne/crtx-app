@@ -5,10 +5,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { ActorsSidepanel } from "@/app/components/directory/ActorsSidepanel";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { DropdownFilter, type FilterCategory } from "@/components/ui/dropdown-filter";
 import type { Actor } from "@/app/types/actors";
 
 const PAGE_SIZE = 15;
@@ -243,34 +241,6 @@ export function DirectoryListPage({
       </Suspense>
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6">
-            <div className="flex gap-4 items-center">
-              <div className="flex-1">
-                <Input
-                  placeholder="Suchen"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setPage(1);
-                  }}
-                  className="max-w-md"
-                />
-              </div>
-              {filterCategories.length > 0 && (
-                <DropdownFilter
-                  categories={filterCategories}
-                  selected={selectedFilters}
-                  onSelectionChange={setSelectedFilters}
-                  triggerLabel="Filtern"
-                  showSearch={true}
-                  searchPlaceholder="Search filters..."
-                  clearAllLabel="Clear all"
-                  doneLabel="Done"
-                />
-              )}
-            </div>
-          </div>
-
           <div className="border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -315,9 +285,7 @@ export function DirectoryListPage({
                   {paginatedActors.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                        {searchQuery || Object.values(selectedFilters).some(f => f.length > 0)
-                          ? "No actors found matching your search."
-                          : "No actors available."}
+                        No actors available.
                       </td>
                     </tr>
                   ) : (
