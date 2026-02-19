@@ -31,7 +31,7 @@ interface DomainContentListProps {
 
 type SortOrder = "newest" | "oldest";
 
-export function DomainContentList({ items, itemsPerPage = 25, domainNames = {} }: DomainContentListProps) {
+export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 10, domainNames = {} }: DomainContentListProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({
     signalType: [],
@@ -39,6 +39,7 @@ export function DomainContentList({ items, itemsPerPage = 25, domainNames = {} }
   });
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
 
   // Get unique signal types for filter
   const signalTypes = useMemo(() => {
@@ -150,10 +151,10 @@ export function DomainContentList({ items, itemsPerPage = 25, domainNames = {} }
   const endIndex = startIndex + itemsPerPage;
   const paginatedItems = filteredAndSortedItems.slice(startIndex, endIndex);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters or itemsPerPage change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedFilters, sortOrder]);
+  }, [searchQuery, selectedFilters, sortOrder, itemsPerPage]);
 
   if (items.length === 0) {
     return (
@@ -211,6 +212,24 @@ export function DomainContentList({ items, itemsPerPage = 25, domainNames = {} }
               <SelectContent>
                 <SelectItem value="newest">Newest First</SelectItem>
                 <SelectItem value="oldest">Oldest First</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Items per page */}
+          <div className="w-full sm:w-32 flex-shrink-0">
+            <Select
+              value={String(itemsPerPage)}
+              onValueChange={(value) => setItemsPerPage(Number(value))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Per page" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
               </SelectContent>
             </Select>
           </div>

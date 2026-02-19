@@ -61,117 +61,86 @@ export function ActorDetailPage({ actor, actions = [], domainNames = {} }: Actor
           </div>
           {/* General Info Tab */}
           <TabsContent value="general" className="p-6 m-0">
-              <div className="space-y-6">
-                {/* Key Facts - Two Column Layout */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    {actor.geography && (
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground">Geography:</span>
-                        <p className="text-sm mt-1">{actor.geography}</p>
-                      </div>
-                    )}
-                    {actor.hqCity && (
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground">HQ City:</span>
-                        <p className="text-sm mt-1">{actor.hqCity}</p>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    {actor.website && (
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground">Website:</span>
-                        <p className="text-sm mt-1">
-                          <a
-                            href={actor.website.startsWith("http") ? actor.website : `https://${actor.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            {actor.website}
-                          </a>
-                        </p>
-                      </div>
-                    )}
-                    {actor.typeMain && (
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground">Business:</span>
-                        <p className="text-sm mt-1">{actor.typeMain}</p>
-                      </div>
-                    )}
-                    {actor.yearFounded && (
-                      <div>
-                        <span className="text-sm font-medium text-muted-foreground">Year Founded:</span>
-                        <p className="text-sm mt-1">{String(actor.yearFounded)}</p>
-                      </div>
-                    )}
+            <div className="space-y-6">
+              {/* Key Facts - Two Column Layout */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  {actor.geography && (
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Geography:</span>
+                      <p className="text-sm mt-1">{actor.geography}</p>
+                    </div>
+                  )}
+                  {actor.hqCity && (
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">HQ City:</span>
+                      <p className="text-sm mt-1">{actor.hqCity}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {actor.website && (
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Website:</span>
+                      <p className="text-sm mt-1">
+                        <a
+                          href={actor.website.startsWith("http") ? actor.website : `https://${actor.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {actor.website}
+                        </a>
+                      </p>
+                    </div>
+                  )}
+                  {actor.typeMain && (
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Business:</span>
+                      <p className="text-sm mt-1">{actor.typeMain}</p>
+                    </div>
+                  )}
+                  {actor.yearFounded && (
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Year Founded:</span>
+                      <p className="text-sm mt-1">{String(actor.yearFounded)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ABOUT Section */}
+              {actor.description && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">ABOUT</h3>
+                  <div className="text-sm text-muted-foreground">
+                    <MarkdownContent content={actor.description} />
                   </div>
                 </div>
+              )}
 
-                {/* ABOUT Section */}
-                {actor.description && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">ABOUT</h3>
-                    <div className="text-sm text-muted-foreground">
-                      <MarkdownContent content={actor.description} />
-                    </div>
-                  </div>
-                )}
+              {/* KEYWORDS Section */}
+              {actor.keywords && formatList(actor.keywords) && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">KEYWORDS</h3>
+                  <p className="text-sm text-muted-foreground">{formatList(actor.keywords)}</p>
+                </div>
+              )}
 
-                {/* KEYWORDS Section */}
-                {actor.keywords && formatList(actor.keywords) && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">KEYWORDS</h3>
-                    <p className="text-sm text-muted-foreground">{formatList(actor.keywords)}</p>
-                  </div>
-                )}
+              {/* COMPETITORS Section */}
+              {actor.competitors && formatList(actor.competitors) && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-2">COMPETITORS</h3>
+                  <p className="text-sm text-muted-foreground">{formatList(actor.competitors)}</p>
+                </div>
+              )}
+            </div>
 
-                {/* COMPETITORS Section */}
-                {actor.competitors && formatList(actor.competitors) && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2">COMPETITORS</h3>
-                    <p className="text-sm text-muted-foreground">{formatList(actor.competitors)}</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* ESG Tab */}
-            <TabsContent value="esg" className="p-6 m-0">
-              <p className="text-sm text-muted-foreground">ESG data will be displayed here.</p>
-            </TabsContent>
-
-            {/* Financial Tab */}
-            <TabsContent value="financial" className="p-6 m-0">
-              <p className="text-sm text-muted-foreground">Financial data will be displayed here.</p>
-            </TabsContent>
-
-            {/* Social Tab */}
-            <TabsContent value="social" className="p-6 m-0">
-              <p className="text-sm text-muted-foreground">Social data will be displayed here.</p>
-            </TabsContent>
-
-            {/* Patent Tab */}
-            <TabsContent value="patent" className="p-6 m-0">
-              <p className="text-sm text-muted-foreground">Patent data will be displayed here.</p>
-            </TabsContent>
-
-            {/* Data Sets Tab */}
-            <TabsContent value="datasets" className="p-6 m-0">
-              <p className="text-sm text-muted-foreground">Data sets will be displayed here.</p>
-            </TabsContent>
-          </Tabs>
-
-          {/* Innovation Portfolio / Timeline and Latest Signals – only on General Info */}
-          {activeTab === "general" && (
-          <>
-            {/* Stats and Charts Section */}
+            {/* Innovation Portfolio / Timeline and Latest Signals – only on General Info */}
             {actions.length > 0 && (
               <ActorDashboard actions={actions} domainNames={domainNames} />
             )}
 
-            {/* Latest Signals Section */}
             <div className="mt-8">
               {actions.length > 0 ? (
                 <DomainContentList items={actions} itemsPerPage={10} domainNames={domainNames} />
@@ -181,8 +150,33 @@ export function ActorDetailPage({ actor, actions = [], domainNames = {} }: Actor
                 </div>
               )}
             </div>
-          </>
-        )}
+          </TabsContent>
+
+          {/* ESG Tab */}
+          <TabsContent value="esg" className="p-6 m-0">
+            <p className="text-sm text-muted-foreground">ESG data will be displayed here.</p>
+          </TabsContent>
+
+          {/* Financial Tab */}
+          <TabsContent value="financial" className="p-6 m-0">
+            <p className="text-sm text-muted-foreground">Financial data will be displayed here.</p>
+          </TabsContent>
+
+          {/* Social Tab */}
+          <TabsContent value="social" className="p-6 m-0">
+            <p className="text-sm text-muted-foreground">Social data will be displayed here.</p>
+          </TabsContent>
+
+          {/* Patent Tab */}
+          <TabsContent value="patent" className="p-6 m-0">
+            <p className="text-sm text-muted-foreground">Patent data will be displayed here.</p>
+          </TabsContent>
+
+          {/* Data Sets Tab */}
+          <TabsContent value="datasets" className="p-6 m-0">
+            <p className="text-sm text-muted-foreground">Data sets will be displayed here.</p>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

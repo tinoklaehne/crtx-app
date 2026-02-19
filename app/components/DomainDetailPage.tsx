@@ -78,7 +78,7 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
                     alt=""
                     width={48}
                     height={48}
-                    className="w-12 h-12 flex-shrink-0 object-contain"
+                    className="w-12 h-12 flex-shrink-0 object-contain invert dark:invert-0"
                   />
                 )}
                 <div className="flex-1 min-w-0">

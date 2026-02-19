@@ -148,7 +148,7 @@ export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentD
                       alt=""
                       width={24}
                       height={24}
-                      className="w-6 h-6 flex-shrink-0 object-contain"
+                      className="w-6 h-6 flex-shrink-0 object-contain invert dark:invert-0"
                     />
                   ) : null}
                   <div className="font-medium text-sm flex-1">{domain.name}</div>

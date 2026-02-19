@@ -231,7 +231,7 @@ export function DomainsListPage({ initialDomains, arenaNames = {} }: DomainsList
                                 alt=""
                                 width={24}
                                 height={24}
-                                className="w-6 h-6 flex-shrink-0 object-contain"
+                                className="w-6 h-6 flex-shrink-0 object-contain invert dark:invert-0"
                               />
                             )}
                             <div>
