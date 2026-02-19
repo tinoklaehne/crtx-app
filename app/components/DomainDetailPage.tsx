@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import { Info } from "lucide-react";
 import { Navbar } from "@/app/components/layout/Navbar";
@@ -16,6 +16,7 @@ import { DomainContentList } from "./domains/DomainContentList";
 import { DomainTrendsView } from "./domains/DomainTrendsView";
 import { DomainReportsSection } from "./domains/DomainReportsSection";
 import { DomainsSidepanel } from "./domains/DomainsSidepanel";
+import { Switch } from "@/components/ui/switch";
 import type { BusinessDomain } from "@/app/types/businessDomains";
 import type { DomainTabContent, DomainTab } from "@/app/types/domainContent";
 import type { Trend } from "@/app/types/trends";
@@ -42,6 +43,56 @@ function formatKeywords(keywords: BusinessDomain["keywords"]): string {
 
 export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {}, reports = [] }: DomainDetailPageProps) {
   const [activeTab, setActiveTab] = useState<DomainTab>("now");
+  const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
+  const [subscribing, setSubscribing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSubscribed() {
+      try {
+        const res = await fetch("/api/user/subscribed-domains");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const domainIds: string[] = data.domainIds ?? [];
+          setIsSubscribed(domainIds.includes(domain.id));
+        }
+      } catch (error) {
+        console.error("Failed to load subscribed domains", error);
+      }
+    }
+    loadSubscribed();
+    return () => {
+      cancelled = true;
+    };
+  }, [domain.id]);
+
+  async function handleSubscriptionToggle(checked: boolean) {
+    if (subscribing) return;
+    setSubscribing(true);
+    const previous = isSubscribed;
+    setIsSubscribed(checked);
+    try {
+      const res = await fetch("/api/user/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ domainId: domain.id, subscribe: checked }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update subscription");
+      }
+      const data = await res.json();
+      const domainIds: string[] = data.domainIds ?? [];
+      setIsSubscribed(domainIds.includes(domain.id));
+    } catch (error) {
+      console.error(error);
+      setIsSubscribed(previous ?? false);
+    } finally {
+      setSubscribing(false);
+    }
+  }
 
   const getActiveTabItems = () => {
     switch (activeTab) {
@@ -121,6 +172,17 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Subscribed
+                      </span>
+                      <Switch
+                        checked={!!isSubscribed}
+                        disabled={isSubscribed === null || subscribing}
+                        onCheckedChange={handleSubscriptionToggle}
+                        aria-label="Subscribe to domain"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

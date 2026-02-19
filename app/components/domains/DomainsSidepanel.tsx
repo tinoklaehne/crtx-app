@@ -11,6 +11,7 @@ import {
   DropdownFilter,
   type FilterCategory,
 } from "@/components/ui/dropdown-filter";
+import { Switch } from "@/components/ui/switch";
 
 interface DomainsSidepanelProps {
   domains: BusinessDomain[];
@@ -54,6 +55,8 @@ export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentD
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>(parseFiltersFromUrl);
+  const [subscribedDomainIds, setSubscribedDomainIds] = useState<string[]>([]);
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -71,6 +74,27 @@ export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentD
       router.replace(newUrl, { scroll: false });
     }
   }, [searchQuery, selectedFilters, pathname, router, searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSubscribedDomains() {
+      try {
+        const res = await fetch("/api/user/subscribed-domains");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const domainIds: string[] = data.domainIds ?? [];
+          setSubscribedDomainIds(domainIds);
+        }
+      } catch (error) {
+        console.error("Failed to load subscribed domains for sidepanel", error);
+      }
+    }
+    loadSubscribedDomains();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const arenaNames = useMemo(() => {
     if (arenaNamesProp && Object.keys(arenaNamesProp).length > 0) return arenaNamesProp;
@@ -90,12 +114,17 @@ export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentD
       );
     }
     const arenaSel = selectedFilters.arena;
-    if (!arenaSel?.length) return list;
-    return list.filter((domain) => {
-      const ids = domain.arenaIds ?? [];
-      return arenaSel.some((id) => ids.includes(id));
-    });
-  }, [domains, searchQuery, selectedFilters]);
+    if (arenaSel?.length) {
+      list = list.filter((domain) => {
+        const ids = domain.arenaIds ?? [];
+        return arenaSel.some((id) => ids.includes(id));
+      });
+    }
+    if (showSubscribedOnly && subscribedDomainIds.length > 0) {
+      list = list.filter((domain) => subscribedDomainIds.includes(domain.id));
+    }
+    return list;
+  }, [domains, searchQuery, selectedFilters, showSubscribedOnly, subscribedDomainIds]);
 
   const handleDomainClick = (domainId: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -105,7 +134,19 @@ export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentD
   return (
     <ResizablePanel defaultWidth={320} minWidth={280} maxWidth={480} className="border-r bg-card">
       <div className="p-4 border-b">
-        <h2 className="text-lg font-semibold mb-3">Domains</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Domains</h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              My Domains
+            </span>
+            <Switch
+              checked={showSubscribedOnly}
+              onCheckedChange={setShowSubscribedOnly}
+              aria-label="Show only subscribed domains"
+            />
+          </div>
+        </div>
         <div className="flex gap-2">
           <Input
             placeholder="Search domains..."

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel } from "../ui/resizable-panel";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo } from "react";
+import { Switch } from "@/components/ui/switch";
+import { useState, useMemo, useEffect } from "react";
 import type { Report } from "@/app/types/reports";
 import {
   DropdownFilter,
@@ -17,6 +18,10 @@ interface LibrarySidepanelProps {
   /** Map of domain record id → name (for Sub-Area labels) */
   domainNames?: Record<string, string>;
   currentReportId?: string;
+  /** When provided (e.g. from LibraryListPage), the sidepanel toggle controls this state and the parent table filter */
+  showSubscribedOnly?: boolean;
+  onShowSubscribedOnlyChange?: (checked: boolean) => void;
+  subscribedReportIds?: string[];
 }
 
 function buildLibraryFilterCategories(
@@ -71,10 +76,45 @@ function buildLibraryFilterCategories(
   ];
 }
 
-export function LibrarySidepanel({ reports, domainNames = {}, currentReportId }: LibrarySidepanelProps) {
+export function LibrarySidepanel({
+  reports,
+  domainNames = {},
+  currentReportId,
+  showSubscribedOnly: controlledShowSubscribedOnly,
+  onShowSubscribedOnlyChange,
+  subscribedReportIds: controlledSubscribedReportIds,
+}: LibrarySidepanelProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
+  const [internalSubscribedReportIds, setInternalSubscribedReportIds] = useState<string[]>([]);
+  const [internalShowSubscribedOnly, setInternalShowSubscribedOnly] = useState(false);
+
+  const isControlled = onShowSubscribedOnlyChange != null;
+  const showSubscribedOnly = isControlled ? (controlledShowSubscribedOnly ?? false) : internalShowSubscribedOnly;
+  const subscribedReportIds = isControlled ? (controlledSubscribedReportIds ?? []) : internalSubscribedReportIds;
+
+  useEffect(() => {
+    if (isControlled) return;
+    let cancelled = false;
+    async function loadSubscribedReports() {
+      try {
+        const res = await fetch("/api/user/subscribed-reports");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const reportIds: string[] = data.reportIds ?? [];
+          setInternalSubscribedReportIds(reportIds);
+        }
+      } catch (error) {
+        console.error("Failed to load subscribed reports for sidepanel", error);
+      }
+    }
+    loadSubscribedReports();
+    return () => {
+      cancelled = true;
+    };
+  }, [isControlled]);
 
   const filterCategories = useMemo(
     () => buildLibraryFilterCategories(reports, domainNames),
@@ -97,23 +137,35 @@ export function LibrarySidepanel({ reports, domainNames = {}, currentReportId }:
     const hasSource = sourceSel?.length;
     const hasSubArea = subAreaSel?.length;
     const hasYear = yearSel?.length;
-    if (!hasSource && !hasSubArea && !hasYear) return list;
-    return list.filter((report) => {
-      if (hasSource) {
-        if (!report.source || !sourceSel.includes(report.source)) return false;
-      }
-      if (hasSubArea) {
-        const ids = report.subAreaIds ?? [];
-        if (!subAreaSel.some((id) => ids.includes(id))) return false;
-      }
-      if (hasYear) {
-        if (!report.year) return false;
-        const yearStr = String(report.year);
-        if (!yearSel.includes(yearStr)) return false;
-      }
-      return true;
-    });
-  }, [reports, searchQuery, selectedFilters]);
+    
+    // Apply other filters if they exist
+    if (hasSource || hasSubArea || hasYear) {
+      list = list.filter((report) => {
+        if (hasSource) {
+          if (!report.source || !sourceSel.includes(report.source)) return false;
+        }
+        if (hasSubArea) {
+          const ids = report.subAreaIds ?? [];
+          if (!subAreaSel.some((id) => ids.includes(id))) return false;
+        }
+        if (hasYear) {
+          if (!report.year) return false;
+          const yearStr = String(report.year);
+          if (!yearSel.includes(yearStr)) return false;
+        }
+        return true;
+      });
+    }
+    
+    // My Reports filter - must be applied last
+    if (showSubscribedOnly) {
+      // Create a Set for faster lookup
+      const subscribedSet = new Set(subscribedReportIds);
+      list = list.filter((report) => subscribedSet.has(report.id));
+    }
+    
+    return list;
+  }, [reports, searchQuery, selectedFilters, showSubscribedOnly, subscribedReportIds]);
 
   const handleReportClick = (reportId: string) => {
     router.push(`/library/${reportId}`);
@@ -127,7 +179,21 @@ export function LibrarySidepanel({ reports, domainNames = {}, currentReportId }:
       className="border-r bg-card"
     >
       <div className="p-4 border-b">
-        <h2 className="text-lg font-semibold mb-3">Library</h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Library</h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              My Reports
+            </span>
+            <Switch
+              checked={showSubscribedOnly}
+              onCheckedChange={(checked) =>
+                isControlled ? onShowSubscribedOnlyChange?.(checked) : setInternalShowSubscribedOnly(checked)
+              }
+              aria-label="Show only bookmarked reports"
+            />
+          </div>
+        </div>
         <div className="flex gap-2">
           <Input
             placeholder="Search reports..."

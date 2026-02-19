@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
@@ -70,6 +70,29 @@ export function LibraryListPage({
   const [sortKey, setSortKey] = useState<SortKey>("year");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(1);
+  const [subscribedReportIds, setSubscribedReportIds] = useState<string[]>([]);
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSubscribedReports() {
+      try {
+        const res = await fetch("/api/user/subscribed-reports");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const reportIds: string[] = data.reportIds ?? [];
+          setSubscribedReportIds(reportIds);
+        }
+      } catch (error) {
+        console.error("Failed to load subscribed reports", error);
+      }
+    }
+    loadSubscribedReports();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Build filter categories
   const filterCategories = useMemo<FilterCategory[]>(() => {
@@ -178,8 +201,15 @@ export function LibraryListPage({
       });
     }
 
+    // My Reports filter - must be applied last
+    if (showSubscribedOnly) {
+      // Create a Set for faster lookup
+      const subscribedSet = new Set(subscribedReportIds);
+      list = list.filter((report) => subscribedSet.has(report.id));
+    }
+
     return list;
-  }, [reports, searchQuery, selectedFilters]);
+  }, [reports, searchQuery, selectedFilters, showSubscribedOnly, subscribedReportIds]);
 
   // Sort
   const sortedReports = useMemo(() => {
@@ -235,6 +265,12 @@ export function LibraryListPage({
         <LibrarySidepanel
           reports={reports}
           domainNames={domainNames}
+          showSubscribedOnly={showSubscribedOnly}
+          onShowSubscribedOnlyChange={(checked) => {
+            setShowSubscribedOnly(checked);
+            setPage(1);
+          }}
+          subscribedReportIds={subscribedReportIds}
         />
       </Suspense>
       <div className="flex-1 overflow-auto">

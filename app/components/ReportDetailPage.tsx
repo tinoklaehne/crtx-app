@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import Image from "next/image";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { LibrarySidepanel } from "@/app/components/library/LibrarySidepanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,56 @@ function formatList(value: string | string[] | undefined): string {
 
 export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: ReportDetailPageProps) {
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState<boolean | null>(null);
+  const [bookmarking, setBookmarking] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBookmarked() {
+      try {
+        const res = await fetch("/api/user/subscribed-reports");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const reportIds: string[] = data.reportIds ?? [];
+          setIsBookmarked(reportIds.includes(report.id));
+        }
+      } catch (error) {
+        console.error("Failed to load bookmarked reports", error);
+      }
+    }
+    loadBookmarked();
+    return () => {
+      cancelled = true;
+    };
+  }, [report.id]);
+
+  async function handleBookmarkToggle(checked: boolean) {
+    if (bookmarking) return;
+    setBookmarking(true);
+    const previous = isBookmarked;
+    setIsBookmarked(checked);
+    try {
+      const res = await fetch("/api/user/bookmark-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reportId: report.id, bookmark: checked }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update bookmark");
+      }
+      const data = await res.json();
+      const reportIds: string[] = data.reportIds ?? [];
+      setIsBookmarked(reportIds.includes(report.id));
+    } catch (error) {
+      console.error(error);
+      setIsBookmarked(previous ?? false);
+    } finally {
+      setBookmarking(false);
+    }
+  }
 
   const handleDownloadFile = () => {
     if (report.fileUrl) {
@@ -88,33 +139,46 @@ export function ReportDetailPage({ report, domainNames = {}, allReports = [] }: 
             </div>
 
             {/* Action Buttons Section */}
-            <div className="flex gap-3 mb-8 pb-6 border-b">
-              <Button
-                variant="outline"
-                onClick={handleDownloadFile}
-                disabled={!report.fileUrl}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download File
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleReportTranscript}
-                disabled={!report.transcript}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Report Transcript
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleChatWithReport}
-                className="flex items-center gap-2"
-              >
-                <MessageSquare className="h-4 w-4" />
-                Chat with Report
-              </Button>
+            <div className="flex items-center justify-between mb-8 pb-6 border-b">
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadFile}
+                  disabled={!report.fileUrl}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download File
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleReportTranscript}
+                  disabled={!report.transcript}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Report Transcript
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleChatWithReport}
+                  className="flex items-center gap-2"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  Chat with Report
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Bookmark
+                </span>
+                <Switch
+                  checked={!!isBookmarked}
+                  disabled={isBookmarked === null || bookmarking}
+                  onCheckedChange={handleBookmarkToggle}
+                  aria-label="Bookmark report"
+                />
+              </div>
             </div>
 
             {/* Year and Domain Tags */}
