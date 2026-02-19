@@ -67,72 +67,75 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
       )}
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Domain Header */}
-          <div className="mb-8">
-            <div className="flex items-start gap-4 mb-4">
-              {(domain.iconAi ?? domain.iconUrl) && (
-                <Image
-                  src={domain.iconAi ?? domain.iconUrl!}
-                  alt=""
-                  width={48}
-                  height={48}
-                  className="w-12 h-12 flex-shrink-0 object-contain"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  <h1 className="text-4xl font-bold">{domain.name}</h1>
-                  {domain.status && (
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        domain.status.toLowerCase() === 'hot'
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                          : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                      }`}
-                    >
-                      {domain.status}
-                    </span>
-                  )}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex cursor-help text-muted-foreground hover:text-foreground">
-                          <Info className="h-5 w-5" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-sm p-4 space-y-2 text-left">
-                        {domain.description && (
-                          <div>
-                            <div className="font-semibold text-foreground mb-1">Description</div>
-                            <p className="text-sm text-muted-foreground">{domain.description}</p>
-                          </div>
-                        )}
-                        {formatKeywords(domain.keywords) && (
-                          <div>
-                            <div className="font-semibold text-foreground mb-1">Keywords</div>
-                            <p className="text-sm text-muted-foreground">{formatKeywords(domain.keywords)}</p>
-                          </div>
-                        )}
-                        {!domain.description && !formatKeywords(domain.keywords) && (
-                          <p className="text-sm text-muted-foreground">No description or keywords.</p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+          {/* Sticky Header and Tabs */}
+          <div className="sticky top-[-24px] z-50 bg-background pb-6 -mx-6 px-6 pt-[48px] border-b border-border/40 mb-8 shadow-sm">
+            {/* Domain Header */}
+            <div className="mb-6">
+              <div className="flex items-start gap-4 mb-4">
+                {(domain.iconAi ?? domain.iconUrl) && (
+                  <Image
+                    src={domain.iconAi ?? domain.iconUrl!}
+                    alt=""
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 flex-shrink-0 object-contain"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
+                    <h1 className="text-4xl font-bold">{domain.name}</h1>
+                    {domain.status && (
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          domain.status.toLowerCase() === 'hot'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
+                        }`}
+                      >
+                        {domain.status}
+                      </span>
+                    )}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex cursor-help text-muted-foreground hover:text-foreground">
+                            <Info className="h-5 w-5" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-sm p-4 space-y-2 text-left">
+                          {domain.description && (
+                            <div>
+                              <div className="font-semibold text-foreground mb-1">Description</div>
+                              <p className="text-sm text-muted-foreground">{domain.description}</p>
+                            </div>
+                          )}
+                          {formatKeywords(domain.keywords) && (
+                            <div>
+                              <div className="font-semibold text-foreground mb-1">Keywords</div>
+                              <p className="text-sm text-muted-foreground">{formatKeywords(domain.keywords)}</p>
+                            </div>
+                          )}
+                          {!domain.description && !formatKeywords(domain.keywords) && (
+                            <p className="text-sm text-muted-foreground">No description or keywords.</p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Tabs */}
-          <div className="mb-8">
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DomainTab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="now">Now</TabsTrigger>
-                <TabsTrigger value="new">New</TabsTrigger>
-                <TabsTrigger value="next">Next</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Tabs */}
+            <div>
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as DomainTab)} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="now">Now</TabsTrigger>
+                  <TabsTrigger value="new">New</TabsTrigger>
+                  <TabsTrigger value="next">Next</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
 
           {/* Dashboard - Only show for Now tab */}
@@ -163,8 +166,10 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
             </div>
           )}
 
-          {/* Reports Section */}
-          <DomainReportsSection reports={reports} domainNames={arenaNames} />
+          {/* Reports Section - only on Now tab */}
+          {activeTab === "now" && (
+            <DomainReportsSection reports={reports} domainNames={arenaNames} />
+          )}
         </div>
       </div>
     </div>
