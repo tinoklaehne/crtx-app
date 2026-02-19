@@ -9,6 +9,8 @@ function mapRecordToUser(record: any): User {
     (getField<string[]>(record, "My_Domains") ?? []).filter(Boolean);
   const subscribedReportIds =
     (getField<string[]>(record, "My_Reports") ?? []).filter(Boolean);
+  const subscribedTrendIds =
+    (getField<string[]>(record, "My_Trends") ?? []).filter(Boolean);
 
   return {
     id: record.id,
@@ -22,6 +24,7 @@ function mapRecordToUser(record: any): User {
     libraryAccess: Boolean(getField<boolean>(record, "Library")),
     subscribedDomainIds,
     subscribedReportIds,
+    subscribedTrendIds,
   };
 }
 
@@ -179,5 +182,50 @@ export async function unbookmarkReport(
   if (!current.includes(reportId)) return current;
   const next = current.filter((id) => id !== reportId);
   return updateUserReportBookmarks(userId, next);
+}
+
+export async function getSubscribedTrends(userId: string): Promise<string[]> {
+  const user = await getUser(userId);
+  return user?.subscribedTrendIds ?? [];
+}
+
+async function updateUserTrendBookmarks(
+  userId: string,
+  subscribedTrendIds: string[]
+): Promise<string[]> {
+  try {
+    const base = getBase();
+    const table = base(USERS_TABLE) as { update: (records: { id: string; fields: Record<string, unknown> }[]) => Promise<unknown> };
+    const result = await fetchWithRetry(() =>
+      table.update([{ id: userId, fields: { My_Trends: subscribedTrendIds } }])
+    );
+    const updated = Array.isArray(result) ? result[0] : result;
+    if (!updated) return [];
+    const user = mapRecordToUser(updated as any);
+    return user.subscribedTrendIds;
+  } catch (error) {
+    console.error("Error updating user trend bookmarks:", error);
+    return [];
+  }
+}
+
+export async function bookmarkTrend(
+  userId: string,
+  trendId: string
+): Promise<string[]> {
+  const current = await getSubscribedTrends(userId);
+  if (current.includes(trendId)) return current;
+  const next = [...current, trendId];
+  return updateUserTrendBookmarks(userId, next);
+}
+
+export async function unbookmarkTrend(
+  userId: string,
+  trendId: string
+): Promise<string[]> {
+  const current = await getSubscribedTrends(userId);
+  if (!current.includes(trendId)) return current;
+  const next = current.filter((id) => id !== trendId);
+  return updateUserTrendBookmarks(userId, next);
 }
 

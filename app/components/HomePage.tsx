@@ -5,9 +5,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { DomainContentList } from "@/app/components/domains/DomainContentList";
 import type { DomainContentItem } from "@/app/types/domainContent";
 import type { Report } from "@/app/types/reports";
+import type { Trend } from "@/app/types/trends";
 
 // Helper to safely convert Airtable values to strings (handles specialValue objects)
 function safeString(value: unknown): string {
@@ -22,16 +24,19 @@ function safeString(value: unknown): string {
 
 export function HomePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"my-domains" | "my-reports" | "overview">(
+  const [activeTab, setActiveTab] = useState<"my-domains" | "my-reports" | "my-trends">(
     "my-domains"
   );
   const [items, setItems] = useState<DomainContentItem[]>([]);
   const [domainNames, setDomainNames] = useState<Record<string, string>>({});
   const [reports, setReports] = useState<Report[]>([]);
+  const [trends, setTrends] = useState<Trend[]>([]);
   const [loading, setLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(false);
+  const [trendsLoading, setTrendsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportsError, setReportsError] = useState<string | null>(null);
+  const [trendsError, setTrendsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -150,6 +155,53 @@ export function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMyTrends() {
+      try {
+        setTrendsLoading(true);
+        setTrendsError(null);
+        const res = await fetch("/api/user/my-trends");
+        const contentType = res.headers.get("content-type") ?? "";
+        let data: { trends?: Trend[]; error?: string } | null = null;
+        if (contentType.includes("application/json")) {
+          try {
+            data = await res.json();
+          } catch (jsonError) {
+            console.warn("Could not parse /api/user/my-trends JSON response", jsonError);
+          }
+        }
+        if (!res.ok) {
+          if (!cancelled) {
+            setTrends([]);
+            setTrendsError(
+              (data?.error) || `Could not load My Trends (status ${res.status}).`
+            );
+          }
+        } else if (data) {
+          if (!cancelled) {
+            setTrends(data.trends ?? []);
+            if (data.error) {
+              setTrendsError("Some data may be incomplete. Airtable connection may be unavailable.");
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setTrends([]);
+          setTrendsError("Could not load My Trends. Please check your Airtable connection.");
+        }
+      } finally {
+        if (!cancelled) {
+          setTrendsLoading(false);
+        }
+      }
+    }
+    loadMyTrends();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="flex h-screen bg-background text-foreground">
       <Navbar />
@@ -164,14 +216,14 @@ export function HomePage() {
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as "my-domains" | "my-reports" | "overview")
+                setActiveTab(value as "my-domains" | "my-reports" | "my-trends")
               }
               className="w-full"
             >
               <TabsList className="mb-4">
                 <TabsTrigger value="my-domains">My Domains</TabsTrigger>
                 <TabsTrigger value="my-reports">My Reports</TabsTrigger>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="my-trends">My Trends</TabsTrigger>
               </TabsList>
 
               <TabsContent value="my-domains" className="m-0">
@@ -253,10 +305,66 @@ export function HomePage() {
                 )}
               </TabsContent>
 
-              <TabsContent value="overview" className="m-0">
-                <p className="text-sm text-muted-foreground">
-                  Select a feature from the left sidebar to get started.
-                </p>
+              <TabsContent value="my-trends" className="m-0">
+                {trendsLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading your bookmarked trends...
+                  </p>
+                ) : trendsError ? (
+                  <p className="text-sm text-destructive">{trendsError}</p>
+                ) : trends.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    You have no bookmarked trends yet. Bookmark trends in the Trends app to see them here.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {trends.map((trend) => (
+                      <div
+                        key={trend.id}
+                        onClick={() => router.push(`/trends/${trend.id}`)}
+                        className="bg-card border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start gap-3">
+                          {(trend.iconUrl ?? trend.imageUrl) ? (
+                            <Image
+                              src={trend.iconUrl ?? trend.imageUrl}
+                              alt=""
+                              width={40}
+                              height={40}
+                              className="w-10 h-10 flex-shrink-0 object-contain invert dark:invert-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-medium text-muted-foreground">
+                                {trend.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm mb-0.5 line-clamp-2">{trend.name}</h3>
+                            {trend.domain && (
+                              <p className="text-xs text-muted-foreground">{trend.domain}</p>
+                            )}
+                          </div>
+                        </div>
+                        {trend.aliases && trend.aliases.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-3">
+                            {trend.aliases.slice(0, 5).map((alias, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs font-normal">
+                                {alias}
+                              </Badge>
+                            ))}
+                            {trend.aliases.length > 5 && (
+                              <Badge variant="secondary" className="text-xs font-normal">
+                                +{trend.aliases.length - 5}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>

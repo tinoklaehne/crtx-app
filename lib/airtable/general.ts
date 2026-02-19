@@ -61,43 +61,26 @@ export async function getClusters(
   )();
 }
 
-// Get all technologies (Micro trends) with optional universe filter
+// Get all technologies (trends) with optional universe filter.
+// Only returns records where Scale = 'Micro'. No explicit fields list.
 export async function getTechnologies(
   clusterType: "parent" | "taxonomy" | "domain" = "parent",
   universe?: "General" | "Travel"
 ): Promise<Trend[]> {
   try {
     const base = getBase();
-    
     let filterFormula = "{Scale} = 'Micro'";
     if (universe) {
       filterFormula = `AND(${filterFormula}, {universe} = '${universe}')`;
     }
-    
-    const records = await fetchWithRetry(() => 
+    const params: { sort: { field: string; direction: 'asc' }[]; filterByFormula: string } = {
+      sort: [{ field: 'Name', direction: 'asc' }],
+      filterByFormula: filterFormula,
+    };
+
+    const records = await fetchWithRetry(() =>
       base(TRENDS_TABLE)
-        .select({
-          filterByFormula: filterFormula,
-          sort: [{ field: 'Name', direction: 'asc' }],
-          fields: [
-            'Name',
-            'Description',
-            'REL_Parent',
-            'REL_Taxonomy',
-            'Domain',
-            'Universe',
-            'TechnologyReadinessLevel',
-            'BusinessReadinessLevel',
-            'TrendHorizon',
-            'Trend Horizon Reasoning',
-            'TRL Reasoning',
-            'BRL Reasoning',
-            'Image',
-            'ImageUrl',
-            'Scale',
-            'Alias'
-          ]
-        })
+        .select(params)
         .all()
     );
     
@@ -122,11 +105,14 @@ export async function getTechnologies(
           aliases = aliasField.split(',').map(alias => alias.trim()).filter(alias => alias.length > 0);
         }
       }
+      const iconField = getField(record, 'Icon');
+      const iconUrl = typeof iconField === 'string' ? iconField : (Array.isArray(iconField) && iconField[0]?.url) ? (iconField[0] as { url?: string }).url : undefined;
       return {
         id: record.id,
         name: getField(record, 'Name') || '',
         description: getField(record, 'Description') || '',
         imageUrl: getField(record, 'ImageUrl') || '',
+        iconUrl: iconUrl || getField(record, 'ImageUrl') || undefined,
         image: getField(record, 'Image') || [],
         clusterId,
         taxonomyId: Array.isArray(taxonomyField) && taxonomyField.length > 0 ? taxonomyField[0] : undefined,
@@ -144,5 +130,55 @@ export async function getTechnologies(
   } catch (error) {
     console.error('Error fetching technologies:', error);
     return [];
+  }
+}
+
+/** Get all trends (Micro scale) sorted by Name – for Trends app list. */
+export async function getAllTrends(): Promise<Trend[]> {
+  return getTechnologies("parent");
+}
+
+/** Get a single trend by ID – for Trends app detail page. */
+export async function getTrend(id: string): Promise<Trend | null> {
+  try {
+    const base = getBase();
+    const record = await fetchWithRetry(() => base(TRENDS_TABLE).find(id));
+    if (!record) return null;
+    const parentField = getField(record, 'REL_Parent');
+    const taxonomyField = getField(record, 'REL_Taxonomy');
+    const clusterId = Array.isArray(parentField) && parentField.length > 0 ? parentField[0] : '';
+    const aliasField = getField(record, 'Alias');
+    let aliases: string[] = [];
+    if (aliasField) {
+      aliases = Array.isArray(aliasField)
+        ? aliasField
+        : typeof aliasField === 'string'
+          ? aliasField.split(',').map((a) => a.trim()).filter(Boolean)
+          : [];
+    }
+    const iconField = getField(record, 'Icon');
+    const iconUrl = typeof iconField === 'string' ? iconField : (Array.isArray(iconField) && iconField[0]?.url) ? (iconField[0] as { url?: string }).url : undefined;
+    return {
+      id: record.id,
+      name: getField(record, 'Name') || '',
+      description: getField(record, 'Description') || '',
+      imageUrl: getField(record, 'ImageUrl') || '',
+      iconUrl: iconUrl || getField(record, 'ImageUrl') || undefined,
+      image: getField(record, 'Image') || [],
+      clusterId,
+      taxonomyId: Array.isArray(taxonomyField) && taxonomyField.length > 0 ? taxonomyField[0] : undefined,
+      domain: normalizeDomain(getField(record, 'Domain') ?? 'Technology') as Domain,
+      universe: (getField(record, 'Universe') as Trend['universe']) || 'General',
+      technologyReadinessLevel: parseInt(String(getField(record, 'TechnologyReadinessLevel') ?? '1'), 10) || 1,
+      businessReadinessLevel: parseInt(String(getField(record, 'BusinessReadinessLevel') ?? '1'), 10) || 1,
+      trendHorizon: (getField(record, 'TrendHorizon') as Trend['trendHorizon']) || '2-5',
+      trendHorizonReasoning: getField(record, 'Trend Horizon Reasoning') || '',
+      trlReasoning: getField(record, 'TRL Reasoning') || '',
+      brlReasoning: getField(record, 'BRL Reasoning') || '',
+      aliases,
+    };
+  } catch (error) {
+    console.error('Error fetching trend:', error);
+    return null;
   }
 }

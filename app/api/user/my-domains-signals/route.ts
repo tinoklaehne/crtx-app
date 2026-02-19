@@ -56,7 +56,8 @@ export async function GET() {
       return bTime - aTime;
     });
 
-    return NextResponse.json({ items: aggregated, domainNames });
+    const newest50 = aggregated.slice(0, 50);
+    return NextResponse.json({ items: newest50, domainNames });
   } catch (error) {
     console.error("Error in /api/user/my-domains-signals GET:", error);
     // Always return 200 with empty data on error so UI doesn't break

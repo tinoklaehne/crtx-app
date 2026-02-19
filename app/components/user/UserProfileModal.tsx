@@ -63,6 +63,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
               libraryAccess: true,
               subscribedDomainIds: [],
               subscribedReportIds: [],
+              subscribedTrendIds: [],
             });
           }
           setError(
@@ -85,6 +86,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
             libraryAccess: true,
             subscribedDomainIds: [],
             subscribedReportIds: [],
+            subscribedTrendIds: [],
           });
           setError(
             "Using fallback profile. Airtable connection may be unavailable."

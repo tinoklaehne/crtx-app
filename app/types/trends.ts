@@ -8,6 +8,8 @@ export interface Trend {
   name: string;
   description: string;
   imageUrl: string;
+  /** Icon URL from Airtable "Icon" field (or ImageUrl fallback). */
+  iconUrl?: string;
   image?: AirtableAttachment[];
   clusterId: string;
   taxonomyId?: string;

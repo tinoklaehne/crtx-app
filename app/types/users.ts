@@ -16,5 +16,7 @@ export interface User {
   subscribedDomainIds: string[];
   /** Linked record IDs of bookmarked reports from \"My_Reports\" column */
   subscribedReportIds: string[];
+  /** Linked record IDs of bookmarked trends from \"My_Trends\" column */
+  subscribedTrendIds: string[];
 }
 

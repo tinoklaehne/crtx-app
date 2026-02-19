@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
 import { NavItem } from "./NavItem";
-import { Radar, Grid3x3, Users, BookOpen, User as UserIcon } from "lucide-react";
+import { Radar, Grid3x3, Users, BookOpen, User as UserIcon, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserProfileModal } from "@/app/components/user/UserProfileModal";
 
@@ -31,9 +31,11 @@ export function Navbar({
         ? "directory"
         : pathname?.startsWith("/library")
           ? "library"
-          : pathname === "/radars" || pathname === "/radars/"
-            ? "radars"
-            : null;
+          : pathname?.startsWith("/trends")
+            ? "trends"
+            : pathname === "/radars" || pathname === "/radars/"
+              ? "radars"
+              : null;
 
   return (
     <>
@@ -47,6 +49,12 @@ export function Navbar({
           isActive={activeMiniApp === 'domains'}
           onClick={() => router.push('/domains')}
           label="Domains"
+        />
+        <NavItem
+          icon={TrendingUp}
+          isActive={activeMiniApp === 'trends'}
+          onClick={() => router.push('/trends')}
+          label="Trends"
         />
         <NavItem
           icon={Radar}
