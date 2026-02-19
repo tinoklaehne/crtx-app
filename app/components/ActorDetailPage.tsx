@@ -30,51 +30,37 @@ export function ActorDetailPage({ actor, actions = [], domainNames = {} }: Actor
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          {actor.logo && (
-            <Image
-              src={actor.logo}
-              alt={actor.name}
-              width={48}
-              height={48}
-              className="w-12 h-12 object-contain flex-shrink-0"
-            />
-          )}
-          <h1 className="text-2xl font-semibold">{actor.name}</h1>
-        </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ActorTab)} className="w-full">
+          {/* Sticky Header and Tabs */}
+          <div className="sticky top-[-24px] z-50 bg-background pb-6 -mx-6 px-6 pt-[48px] border-b border-border/40 mb-8 shadow-sm">
+            {/* Actor Header */}
+            <div className="mb-6">
+              <div className="flex items-center gap-4">
+                {actor.logo && (
+                  <Image
+                    src={actor.logo}
+                    alt={actor.name}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 object-contain flex-shrink-0"
+                  />
+                )}
+                <h1 className="text-2xl font-semibold">{actor.name}</h1>
+              </div>
+            </div>
 
-        {/* Tabs Container */}
-        <div className="border rounded-lg bg-card">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ActorTab)} className="w-full">
-            <TabsList className="w-full justify-start rounded-t-lg rounded-b-none border-b bg-muted/50 h-auto p-0">
-              <TabsTrigger value="general" className="gap-2">
-                <Info className="h-4 w-4" />
-                General Info
-              </TabsTrigger>
-              <TabsTrigger value="esg" className="gap-2">
-                <Leaf className="h-4 w-4" />
-                ESG
-              </TabsTrigger>
-              <TabsTrigger value="financial" className="gap-2">
-                <DollarSign className="h-4 w-4" />
-                Financial
-              </TabsTrigger>
-              <TabsTrigger value="social" className="gap-2">
-                <Sparkles className="h-4 w-4" />
-                Social
-              </TabsTrigger>
-              <TabsTrigger value="patent" className="gap-2">
-                <FileText className="h-4 w-4" />
-                Patent
-              </TabsTrigger>
-              <TabsTrigger value="datasets" className="gap-2">
-                <Database className="h-4 w-4" />
-                Data Sets
-              </TabsTrigger>
+            {/* Tabs */}
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="general">General Info</TabsTrigger>
+              <TabsTrigger value="esg">ESG</TabsTrigger>
+              <TabsTrigger value="financial">Financial</TabsTrigger>
+              <TabsTrigger value="social">Social</TabsTrigger>
+              <TabsTrigger value="patent">Patent</TabsTrigger>
+              <TabsTrigger value="datasets">Data Sets</TabsTrigger>
             </TabsList>
-
-            {/* General Info Tab */}
-            <TabsContent value="general" className="p-6 m-0">
+          </div>
+          {/* General Info Tab */}
+          <TabsContent value="general" className="p-6 m-0">
               <div className="space-y-6">
                 {/* Key Facts - Two Column Layout */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -176,10 +162,9 @@ export function ActorDetailPage({ actor, actions = [], domainNames = {} }: Actor
               <p className="text-sm text-muted-foreground">Data sets will be displayed here.</p>
             </TabsContent>
           </Tabs>
-        </div>
 
-        {/* Innovation Portfolio / Timeline and Latest Signals – only on General Info */}
-        {activeTab === "general" && (
+          {/* Innovation Portfolio / Timeline and Latest Signals – only on General Info */}
+          {activeTab === "general" && (
           <>
             {/* Stats and Charts Section */}
             {actions.length > 0 && (
