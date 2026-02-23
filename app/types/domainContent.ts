@@ -26,4 +26,4 @@ export interface DomainTabContent {
   next: DomainContentItem[];
 }
 
-export type DomainTab = "now" | "new" | "next";
+export type DomainTab = "now" | "new" | "next" | "strategy";

@@ -1,5 +1,6 @@
 import { getDomain, getDomainContent, getDomainIds, getDomainTrends, getAllDomains } from "@/lib/airtable/domains";
 import { getReportsByDomain } from "@/lib/airtable/reports";
+import { getDomainStrategy } from "@/lib/airtable/strategy";
 import { DomainDetailPage } from "@/app/components/DomainDetailPage";
 import { notFound } from "next/navigation";
 import { getBase, getField, normalizeDomain, fetchWithRetry } from "@/lib/airtable/utils";
@@ -75,8 +76,8 @@ export default async function DomainDetailRoute({
   // Await params to fix Next.js 15 compatibility
   const { domainId } = await params;
 
-  // Fetch domain, content, trends data, all domains, and reports in parallel
-  const [domain, content, trendsData, allDomains, reports] = await Promise.all([
+  // Fetch domain, content, trends data, all domains, reports, and strategy in parallel
+  const [domain, content, trendsData, allDomains, reports, strategy] = await Promise.all([
     getDomain(domainId).catch(err => {
       console.error("Failed to fetch domain:", err);
       return null;
@@ -100,6 +101,10 @@ export default async function DomainDetailRoute({
     getReportsByDomain(domainId).catch(err => {
       console.error("Failed to fetch reports:", err);
       return [];
+    }),
+    getDomainStrategy(domainId).catch(err => {
+      console.error("Failed to fetch domain strategy:", err);
+      return { themes: [], questions: [], problems: [] };
     }),
   ]);
   
@@ -130,5 +135,5 @@ export default async function DomainDetailRoute({
   const arenaNames = Object.fromEntries(
     (allDomains || []).map((d) => [d.id, d.name ?? ""])
   );
-  return <DomainDetailPage domain={domain} content={content} trends={trends} clusters={clusters} allDomains={subAreaDomains} arenaNames={arenaNames} reports={reports} />;
+  return <DomainDetailPage domain={domain} content={content} trends={trends} clusters={clusters} allDomains={subAreaDomains} arenaNames={arenaNames} reports={reports} strategy={strategy} />;
 }
