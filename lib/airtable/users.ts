@@ -2,6 +2,7 @@ import { getBase, getField, fetchWithRetry } from "./utils";
 import type { User } from "@/app/types/users";
 
 const USERS_TABLE = "tblqIQzctIWM0SCfg";
+// Deprecated: previous hardcoded current user. Kept only for reference while migrating to real auth.
 const CURRENT_USER_ID = "recF4H1p8zeh21o5z";
 
 function mapRecordToUser(record: any): User {
@@ -11,11 +12,19 @@ function mapRecordToUser(record: any): User {
     (getField<string[]>(record, "My_Reports") ?? []).filter(Boolean);
   const subscribedTrendIds =
     (getField<string[]>(record, "My_Trends") ?? []).filter(Boolean);
+  const lastLogin =
+    (getField<string | Date>(record, "Last Login") as string | Date | undefined) ??
+    undefined;
 
   return {
     id: record.id,
     name: getField<string>(record, "Name") ?? "",
     email: getField<string>(record, "Email") ?? "",
+    lastLogin: lastLogin
+      ? typeof lastLogin === "string"
+        ? lastLogin
+        : new Date(lastLogin).toISOString()
+      : undefined,
     organisation: getField<string>(record, "Organisation") ?? undefined,
     businessUnit: getField<string>(record, "Business Unit") ?? undefined,
     domainsAccess: Boolean(getField<boolean>(record, "Domains")),
@@ -51,6 +60,50 @@ export async function getCurrentUser(): Promise<User | null> {
 
   // Fallback: if ID lookup fails, return null so caller can decide
   return null;
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  try {
+    const base = getBase();
+    const table = base(USERS_TABLE);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const records = await fetchWithRetry(() =>
+      table
+        .select({
+          filterByFormula: `LOWER({Email}) = '${normalizedEmail.replace(/'/g, "''")}'`,
+          maxRecords: 1,
+        })
+        .firstPage()
+    );
+
+    if (!records || records.length === 0) return null;
+    return mapRecordToUser(records[0]);
+  } catch (error) {
+    console.error("Error fetching user by email:", error);
+    return null;
+  }
+}
+
+export async function updateLastLogin(userId: string): Promise<void> {
+  try {
+    const base = getBase();
+    const table = base(USERS_TABLE) as {
+      update: (records: { id: string; fields: Record<string, unknown> }[]) => Promise<unknown>;
+    };
+    await fetchWithRetry(() =>
+      table.update([
+        {
+          id: userId,
+          fields: {
+            "Last Login": new Date().toISOString(),
+          },
+        },
+      ])
+    );
+  } catch (error) {
+    console.error("Error updating user last login:", error);
+  }
 }
 
 export async function updateUser(

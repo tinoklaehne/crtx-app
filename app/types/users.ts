@@ -3,6 +3,8 @@ export interface User {
   /** Display name of the user */
   name: string;
   email: string;
+  /** ISO timestamp of the last successful login, from Airtable "Last Login" field */
+  lastLogin?: string;
   organisation?: string;
   businessUnit?: string;
 

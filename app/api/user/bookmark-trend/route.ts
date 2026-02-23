@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getCurrentUser,
-  bookmarkTrend,
-  unbookmarkTrend,
-} from "@/lib/airtable/users";
+import { getUser, bookmarkTrend, unbookmarkTrend } from "@/lib/airtable/users";
+import { getSessionFromRequest } from "@/lib/auth/session";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function POST(request: NextRequest) {
@@ -21,9 +18,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await getCurrentUser();
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ trendIds: [], error: "User not authenticated" }, { status: 401 });
+    }
+
+    const user = await getUser(session.userId);
     if (!user) {
-      return NextResponse.json({ trendIds: [], error: "User not found" });
+      return NextResponse.json({ trendIds: [], error: "User not found" }, { status: 404 });
     }
 
     const trendIds = bookmark
@@ -34,8 +36,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error in /api/user/bookmark-trend POST:", error);
     try {
-      const user = await getCurrentUser();
-      const trendIds = user?.subscribedTrendIds ?? [];
+      const session = await getSessionFromRequest(request);
+      const fallbackUser = session ? await getUser(session.userId) : null;
+      const trendIds = fallbackUser?.subscribedTrendIds ?? [];
       return NextResponse.json({ trendIds, error: true });
     } catch {
       return NextResponse.json({ trendIds: [], error: true });

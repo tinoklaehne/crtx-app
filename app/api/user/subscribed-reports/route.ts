@@ -1,15 +1,17 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/airtable/users";
+import { NextRequest, NextResponse } from "next/server";
+import { getUser } from "@/lib/airtable/users";
+import { getSessionFromRequest } from "@/lib/auth/session";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ reportIds: [] });
-    }
+    const session = await getSessionFromRequest(request);
+    if (!session) return NextResponse.json({ reportIds: [] }, { status: 401 });
+
+    const user = await getUser(session.userId);
+    if (!user) return NextResponse.json({ reportIds: [] }, { status: 401 });
     return NextResponse.json({ reportIds: user.subscribedReportIds });
   } catch (error) {
     console.error("Error in /api/user/subscribed-reports GET:", error);

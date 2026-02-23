@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +25,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch("/api/user/profile");
+        const res = await fetch("/api/user/profile", { credentials: "include" });
         let data: any = null;
         const contentType = res.headers.get("content-type") ?? "";
         if (contentType.includes("application/json")) {
@@ -142,13 +142,41 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
     }
   }
 
+  async function handleLogout() {
+    try {
+      setError(null);
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to log out");
+      }
+      window.location.href = "/login";
+    } catch (err) {
+      console.error(err);
+      setError("Could not log out");
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserIcon className="h-5 w-5" />
-            User Profile
+        <DialogHeader className="pr-10">
+          <DialogTitle className="flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2">
+              <UserIcon className="h-5 w-5" />
+              User Profile
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="shrink-0"
+            >
+              <LogOut className="h-4 w-4 mr-1" />
+              Log out
+            </Button>
           </DialogTitle>
         </DialogHeader>
         {loading ? (
@@ -187,15 +215,16 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
                 onChange={handleChange("businessUnit")}
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-3 pt-2 flex-wrap">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
                 disabled={saving}
+                className="shrink-0"
               >
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving} className="shrink-0">
                 {saving ? "Saving..." : "Save"}
               </Button>
             </div>

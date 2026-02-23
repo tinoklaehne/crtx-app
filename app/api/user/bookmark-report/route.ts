@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getCurrentUser,
-  bookmarkReport,
-  unbookmarkReport,
-} from "@/lib/airtable/users";
+import { getUser, bookmarkReport, unbookmarkReport } from "@/lib/airtable/users";
+import { getSessionFromRequest } from "@/lib/auth/session";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function POST(request: NextRequest) {
@@ -21,10 +18,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await getCurrentUser();
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ reportIds: [], error: "User not authenticated" }, { status: 401 });
+    }
+
+    const user = await getUser(session.userId);
     if (!user) {
-      // Return empty array instead of error so UI doesn't break
-      return NextResponse.json({ reportIds: [], error: "User not found" });
+      return NextResponse.json({ reportIds: [], error: "User not found" }, { status: 404 });
     }
 
     const reportIds = bookmark
@@ -36,8 +37,9 @@ export async function POST(request: NextRequest) {
     console.error("Error in /api/user/bookmark-report POST:", error);
     // Try to return current state on error
     try {
-      const user = await getCurrentUser();
-      const reportIds = user?.subscribedReportIds ?? [];
+      const session = await getSessionFromRequest(request);
+      const fallbackUser = session ? await getUser(session.userId) : null;
+      const reportIds = fallbackUser?.subscribedReportIds ?? [];
       return NextResponse.json({ reportIds, error: true });
     } catch {
       return NextResponse.json({ reportIds: [], error: true });

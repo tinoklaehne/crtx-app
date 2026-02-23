@@ -1,14 +1,20 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/airtable/users";
+import { NextRequest, NextResponse } from "next/server";
+import { getUser } from "@/lib/airtable/users";
+import { getSessionFromRequest } from "@/lib/auth/session";
 import { getDomainContent, getDomain } from "@/lib/airtable/domains";
 import type { DomainContentItem } from "@/app/types/domainContent";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const session = await getSessionFromRequest(request);
+    if (!session) {
+      return NextResponse.json({ items: [], domainNames: {} }, { status: 401 });
+    }
+
+    const user = await getUser(session.userId);
     if (!user || user.subscribedDomainIds.length === 0) {
       return NextResponse.json({ items: [], domainNames: {} });
     }

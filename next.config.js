@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Static export only when not on Vercel (Vercel needs serverless so [radarId] can render on-demand and build stays under timeout)
-  ...(process.env.VERCEL ? {} : { output: 'export' }),
+  // Static export only when doing a production build and not on Vercel (dev uses server so middleware/auth work)
+  ...(process.env.VERCEL || process.env.NODE_ENV !== 'production' ? {} : { output: 'export' }),
   trailingSlash: true,
   images: { 
     unoptimized: true,

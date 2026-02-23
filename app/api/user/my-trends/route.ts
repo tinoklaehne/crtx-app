@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/airtable/users";
+import { NextRequest, NextResponse } from "next/server";
+import { getUser } from "@/lib/airtable/users";
+import { getSessionFromRequest } from "@/lib/auth/session";
 import { getAllTrends } from "@/lib/airtable/general";
 import type { Trend } from "@/app/types/trends";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const session = await getSessionFromRequest(request);
+    if (!session) return NextResponse.json({ trends: [] }, { status: 401 });
+
+    const user = await getUser(session.userId);
     if (!user || user.subscribedTrendIds.length === 0) {
       return NextResponse.json({ trends: [] });
     }
