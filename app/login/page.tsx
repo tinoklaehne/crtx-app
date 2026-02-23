@@ -1,18 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextPath, setNextPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+      setNextPath(url.searchParams.get("next"));
+    } catch {
+      // Ignore URL parsing errors and fall back to default redirect
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,7 +41,7 @@ export default function LoginPage() {
         setError(data?.error || "Invalid email or password");
         return;
       }
-      const next = searchParams.get("next") || "/";
+      const next = nextPath || "/";
       router.push(next);
     } catch (err) {
       console.error(err);
