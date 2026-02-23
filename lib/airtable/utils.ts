@@ -49,7 +49,11 @@ function createMockBase() {
       all: () => {
         if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: select().all() called on table ${tableName}`);
         return Promise.resolve([]);
-      }
+      },
+      firstPage: () => {
+        if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: select().firstPage() called on table ${tableName}`);
+        return Promise.resolve([]);
+      },
     }),
     find: (id: string) => {
       if (process.env.NODE_ENV === 'development') console.warn(`Mock Airtable: find(${id}) called on table ${tableName}`);

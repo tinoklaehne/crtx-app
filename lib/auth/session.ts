@@ -71,7 +71,7 @@ export function clearSessionCookie(res: NextResponse): void {
 
 // Convenience for server components (not route handlers) to read session
 export async function getSessionFromCookies(): Promise<SessionPayload | null> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
   return verifySessionToken(token);
