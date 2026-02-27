@@ -12,6 +12,7 @@ export interface User {
   domainsAccess: boolean;
   directoryAccess: boolean;
   radarsAccess: boolean;
+  trendsAccess: boolean;
   libraryAccess: boolean;
 
   /** Linked record IDs of subscribed domains from \"My_Domains\" column */

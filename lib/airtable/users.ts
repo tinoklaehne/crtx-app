@@ -30,6 +30,7 @@ function mapRecordToUser(record: any): User {
     domainsAccess: Boolean(getField<boolean>(record, "Domains")),
     directoryAccess: Boolean(getField<boolean>(record, "Directory")),
     radarsAccess: Boolean(getField<boolean>(record, "Radars")),
+    trendsAccess: Boolean(getField<boolean>(record, "Trends")),
     libraryAccess: Boolean(getField<boolean>(record, "Library")),
     subscribedDomainIds,
     subscribedReportIds,

@@ -237,10 +237,14 @@ export function DomainsListPage({ initialDomains, arenaNames = {} }: DomainsList
                           <MomentumSparkline data={domain.momentumData ?? []} />
                         </td>
                         <td className="p-4 text-right">
-                          {domain.signalsMonth !== undefined ? domain.signalsMonth.toLocaleString() : "-"}
+                          {domain.signalsMonth !== undefined
+                            ? domain.signalsMonth.toLocaleString("en-US")
+                            : "-"}
                         </td>
                         <td className="p-4 text-right">
-                          {domain.signalsTotal !== undefined ? domain.signalsTotal.toLocaleString() : "-"}
+                          {domain.signalsTotal !== undefined
+                            ? domain.signalsTotal.toLocaleString("en-US")
+                            : "-"}
                         </td>
                       </tr>
                     ))
