@@ -14,6 +14,8 @@ export interface Report {
   transcript?: string;
   /** "Year" – report year */
   year?: string | number;
+  /** "Created" – Airtable created time (ISO string) */
+  createdAt?: string;
   /** Additional fields for Key Insights and Keywords (to be determined) */
   keyInsights?: string | string[];
   keywords?: string | string[];

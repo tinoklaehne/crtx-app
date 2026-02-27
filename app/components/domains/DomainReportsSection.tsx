@@ -110,11 +110,11 @@ function ReportDetailModal({
               </Button>
               <Button
                 variant="outline"
-                onClick={handleChatWithReport}
-                className="flex items-center gap-2"
+                disabled
+                className="flex items-center gap-2 cursor-not-allowed opacity-60"
               >
                 <MessageSquare className="h-4 w-4" />
-                Chat with Report
+                Chat with Report (coming soon)
               </Button>
             </div>
 

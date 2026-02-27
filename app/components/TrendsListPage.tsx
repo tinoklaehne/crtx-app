@@ -13,7 +13,7 @@ interface TrendsListPageProps {
 export function TrendsListPage({ initialTrends, loadError }: TrendsListPageProps) {
   const [trends] = useState<Trend[]>(initialTrends);
   const [subscribedTrendIds, setSubscribedTrendIds] = useState<string[]>([]);
-  const [showSubscribedOnly, setShowSubscribedOnly] = useState(false);
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState(true);
 
   useEffect(() => {
     let cancelled = false;

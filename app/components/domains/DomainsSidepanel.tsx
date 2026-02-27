@@ -56,7 +56,7 @@ export function DomainsSidepanel({ domains, arenaNames: arenaNamesProp, currentD
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>(parseFiltersFromUrl);
   const [subscribedDomainIds, setSubscribedDomainIds] = useState<string[]>([]);
-  const [showSubscribedOnly, setShowSubscribedOnly] = useState(false);
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams();

@@ -52,7 +52,7 @@ export function TrendsSidepanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const [internalSubscribedTrendIds, setInternalSubscribedTrendIds] = useState<string[]>([]);
-  const [internalShowSubscribedOnly, setInternalShowSubscribedOnly] = useState(false);
+  const [internalShowSubscribedOnly, setInternalShowSubscribedOnly] = useState(true);
 
   const isControlled = onShowSubscribedOnlyChange != null;
   const showSubscribedOnly = isControlled ? (controlledShowSubscribedOnly ?? false) : internalShowSubscribedOnly;

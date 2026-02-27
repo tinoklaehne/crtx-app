@@ -71,7 +71,8 @@ export function LibraryListPage({
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(1);
   const [subscribedReportIds, setSubscribedReportIds] = useState<string[]>([]);
-  const [showSubscribedOnly, setShowSubscribedOnly] = useState(false);
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState(true);
+  const [lastLogin, setLastLogin] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +90,30 @@ export function LibraryListPage({
       }
     }
     loadSubscribedReports();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load user profile once to know last login (for \"new since last login\" section).
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProfile() {
+      try {
+        const res = await fetch("/api/user/profile", { credentials: "include" });
+        const contentType = res.headers.get("content-type") ?? "";
+        let data: any = null;
+        if (contentType.includes("application/json")) {
+          data = await res.json().catch(() => null);
+        }
+        if (!cancelled && res.ok && data && data.user && data.user.lastLogin) {
+          setLastLogin(data.user.lastLogin as string);
+        }
+      } catch {
+        // best effort; if it fails we simply don't show the \"new\" section
+      }
+    }
+    loadProfile();
     return () => {
       cancelled = true;
     };
@@ -258,6 +283,19 @@ export function LibraryListPage({
 
   const activeFilterCount = Object.values(selectedFilters).reduce((sum, arr) => sum + arr.length, 0);
 
+  // Reports created after last login
+  const newReportsSinceLastLogin = useMemo(() => {
+    if (!lastLogin) return [];
+    const last = Date.parse(lastLogin);
+    if (Number.isNaN(last)) return [];
+    return reports.filter((report) => {
+      if (!report.createdAt) return false;
+      const created = Date.parse(report.createdAt);
+      if (Number.isNaN(created)) return false;
+      return created > last;
+    });
+  }, [reports, lastLogin]);
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Navbar />
@@ -282,6 +320,55 @@ export function LibraryListPage({
             </div>
           ) : (
             <>
+              {newReportsSinceLastLogin.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold">New since your last visit</h2>
+                    <span className="text-sm text-muted-foreground">
+                      {newReportsSinceLastLogin.length}{" "}
+                      {newReportsSinceLastLogin.length === 1 ? "report" : "reports"}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto pb-4 -mx-1 sm:-mx-0">
+                    <div className="flex gap-4 min-w-max">
+                      {newReportsSinceLastLogin.map((report) => (
+                        <div
+                          key={report.id}
+                          onClick={() => router.push(`/library/${report.id}`)}
+                          className="flex-shrink-0 w-64 bg-card border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                        >
+                          <div className="aspect-square bg-muted rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                            {report.sourceLogo ? (
+                              <Image
+                                src={report.sourceLogo}
+                                alt={report.source || report.name}
+                                width={200}
+                                height={200}
+                                className="w-full h-full object-contain p-4"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <span className="text-4xl text-muted-foreground">
+                                  {report.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-sm mb-1 line-clamp-2">
+                            {report.name}
+                          </h3>
+                          {report.source && (
+                            <p className="text-xs text-muted-foreground">
+                              {report.source}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="border rounded-lg overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-muted/50">

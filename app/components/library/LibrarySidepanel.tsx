@@ -88,7 +88,7 @@ export function LibrarySidepanel({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
   const [internalSubscribedReportIds, setInternalSubscribedReportIds] = useState<string[]>([]);
-  const [internalShowSubscribedOnly, setInternalShowSubscribedOnly] = useState(false);
+  const [internalShowSubscribedOnly, setInternalShowSubscribedOnly] = useState(true);
 
   const isControlled = onShowSubscribedOnlyChange != null;
   const showSubscribedOnly = isControlled ? (controlledShowSubscribedOnly ?? false) : internalShowSubscribedOnly;

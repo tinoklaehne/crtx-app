@@ -38,24 +38,38 @@ export async function getAllReports(): Promise<Report[]> {
     const records = await fetchWithRetry(
       () =>
         base(REPORTS_TABLE)
-          .select({ sort: [{ field: 'Name', direction: 'asc' }] })
+          .select({ sort: [{ field: "Name", direction: "asc" }] })
           .all(),
       3,
       4000
     );
-    return records.map((record) => ({
-      id: record.id,
-      name: getField<string>(record, 'Name') ?? '',
-      source: getField<string>(record, 'Source') ?? undefined,
-      sourceLogo: getSourceLogoUrl(record),
-      subAreaIds: (getField<string[]>(record, '(REL) Sub-Area') ?? []).filter(Boolean),
-      fileUrl: getFileUrl(record),
-      summary: getField<string>(record, '-->AI/Summary') ?? undefined,
-      transcript: getField<string>(record, '-->AI/Transcript') ?? undefined,
-      year: getField<string | number>(record, 'Year') ?? undefined,
-      keyInsights: getField<string | string[]>(record, 'Key Insights') ?? undefined,
-      keywords: getField<string | string[]>(record, 'Keywords') ?? undefined,
-    }));
+    return records.map((record) => {
+      const created = getField<string | Date>(record, "Created") ?? undefined;
+      const createdAt =
+        created instanceof Date
+          ? created.toISOString()
+          : typeof created === "string"
+          ? created
+          : undefined;
+
+      return {
+        id: record.id,
+        name: getField<string>(record, "Name") ?? "",
+        source: getField<string>(record, "Source") ?? undefined,
+        sourceLogo: getSourceLogoUrl(record),
+        subAreaIds:
+          (getField<string[]>(record, "(REL) Sub-Area") ?? []).filter(Boolean),
+        fileUrl: getFileUrl(record),
+        summary: getField<string>(record, "-->AI/Summary") ?? undefined,
+        transcript: getField<string>(record, "-->AI/Transcript") ?? undefined,
+        year: getField<string | number>(record, "Year") ?? undefined,
+        createdAt,
+        keyInsights:
+          getField<string | string[]>(record, "Key Insights") ?? undefined,
+        keywords:
+          getField<string | string[]>(record, "Keywords") ?? undefined,
+      };
+    });
   } catch (error) {
     console.error('Error fetching reports:', error);
     return [];
@@ -67,18 +81,30 @@ export async function getReport(id: string): Promise<Report | null> {
     const base = getBase();
     const record = await fetchWithRetry(() => base(REPORTS_TABLE).find(id));
     if (!record) return null;
+    const created = getField<string | Date>(record, "Created") ?? undefined;
+    const createdAt =
+      created instanceof Date
+        ? created.toISOString()
+        : typeof created === "string"
+        ? created
+        : undefined;
+
     return {
       id: record.id,
-      name: getField<string>(record, 'Name') ?? '',
-      source: getField<string>(record, 'Source') ?? undefined,
+      name: getField<string>(record, "Name") ?? "",
+      source: getField<string>(record, "Source") ?? undefined,
       sourceLogo: getSourceLogoUrl(record),
-      subAreaIds: (getField<string[]>(record, '(REL) Sub-Area') ?? []).filter(Boolean),
+      subAreaIds:
+        (getField<string[]>(record, "(REL) Sub-Area") ?? []).filter(Boolean),
       fileUrl: getFileUrl(record),
-      summary: getField<string>(record, '-->AI/Summary') ?? undefined,
-      transcript: getField<string>(record, '-->AI/Transcript') ?? undefined,
-      year: getField<string | number>(record, 'Year') ?? undefined,
-      keyInsights: getField<string | string[]>(record, 'Key Insights') ?? undefined,
-      keywords: getField<string | string[]>(record, 'Keywords') ?? undefined,
+      summary: getField<string>(record, "-->AI/Summary") ?? undefined,
+      transcript: getField<string>(record, "-->AI/Transcript") ?? undefined,
+      year: getField<string | number>(record, "Year") ?? undefined,
+      createdAt,
+      keyInsights:
+        getField<string | string[]>(record, "Key Insights") ?? undefined,
+      keywords:
+        getField<string | string[]>(record, "Keywords") ?? undefined,
     };
   } catch (error) {
     console.error('Error fetching report:', error);
