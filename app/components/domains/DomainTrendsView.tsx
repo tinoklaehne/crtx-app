@@ -84,6 +84,7 @@ export function DomainTrendsView({ trends, clusters }: DomainTrendsViewProps) {
           onNavigateCluster={handleNavigateCluster}
           onViewChange={setActiveView}
           nodePositioning={nodePositioning}
+          showTechnologiesTitle={false}
         />
         {view === "matrix" ? (
           <MatrixVisualization

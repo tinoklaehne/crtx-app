@@ -31,10 +31,20 @@ export async function getRadar(id: string): Promise<Radar | null> {
     }
 
     if (process.env.NODE_ENV === 'development') console.log(`Successfully fetched radar: ${getField(record, 'Name')}`);
+
+    const rawLogo = getField<any>(record, 'Logo');
+    const logoUrl =
+      typeof rawLogo === 'string'
+        ? rawLogo.trim() || undefined
+        : Array.isArray(rawLogo) && rawLogo[0] && typeof (rawLogo[0] as any).url === 'string'
+          ? ((rawLogo[0] as any).url as string).trim() || undefined
+          : undefined;
+
     return {
       id: record.id,
       name: getField(record, 'Name') || '',
       description: getField(record, 'Description') || '',
+      logoUrl,
       type: getField(record, 'Type') || 'General',
       level: getField(record, 'Level') || 'Micro',
       cluster: getField(record, 'Cluster') || 'Parent',
@@ -63,18 +73,29 @@ export async function getAllRadars(): Promise<Radar[]> {
     
     if (process.env.NODE_ENV === 'development') console.log(`Successfully fetched ${records.length} radars from Airtable`);
     
-    return records.map(record => ({
-      id: record.id,
-      name: getField(record, 'Name') || '',
-      description: getField(record, 'Description') || '',
-      type: getField(record, 'Type') || 'General',
-      level: getField(record, 'Level') || 'Micro',
-      cluster: getField(record, 'Cluster') || 'Parent',
-      totalTrends: getField(record, 'Total Trends') || 0,
-      lastModified: getField(record, 'Last Modified') || new Date().toISOString(),
-      trends: getField(record, 'REL_Trends') || [],
-      radarType: getField(record, 'Radar Type') || undefined,
-    }));
+    return records.map(record => {
+      const rawLogo = getField<any>(record, 'Logo');
+      const logoUrl =
+        typeof rawLogo === 'string'
+          ? rawLogo.trim() || undefined
+          : Array.isArray(rawLogo) && rawLogo[0] && typeof (rawLogo[0] as any).url === 'string'
+            ? ((rawLogo[0] as any).url as string).trim() || undefined
+            : undefined;
+
+      return {
+        id: record.id,
+        name: getField(record, 'Name') || '',
+        description: getField(record, 'Description') || '',
+        logoUrl,
+        type: getField(record, 'Type') || 'General',
+        level: getField(record, 'Level') || 'Micro',
+        cluster: getField(record, 'Cluster') || 'Parent',
+        totalTrends: getField(record, 'Total Trends') || 0,
+        lastModified: getField(record, 'Last Modified') || new Date().toISOString(),
+        trends: getField(record, 'REL_Trends') || [],
+        radarType: getField(record, 'Radar Type') || undefined,
+      };
+    });
   } catch (error) {
     console.error('Error fetching radars:', error);
     // Return empty array instead of throwing to prevent build failures

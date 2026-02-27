@@ -18,6 +18,7 @@ interface TechnologiesSectionProps {
   onClusterSelect: (cluster: Cluster | null) => void;
   nodePositioning: NodePositioning;
   radarName?: string;
+  showTitle?: boolean;
 }
 
 export function TechnologiesSection({
@@ -30,6 +31,7 @@ export function TechnologiesSection({
   onClusterSelect,
   nodePositioning,
   radarName,
+  showTitle = true,
 }: TechnologiesSectionProps) {
   const handleClusterClick = useCallback((cluster: Cluster) => {
     onClusterSelect(cluster);
@@ -80,13 +82,15 @@ export function TechnologiesSection({
   return (
     <div className="flex flex-col h-full">
       <div className="sticky top-0 z-10 bg-background">
-        <div className="px-6 h-[72px] flex items-center">
-          <h2 className="text-2xl font-extrabold">
-            {radarName || "Trends"}
-          </h2>
-        </div>
+        {showTitle && (
+          <div className="px-6 h-[72px] flex items-center">
+            <h2 className="text-2xl font-extrabold">
+              {radarName || "Trends"}
+            </h2>
+          </div>
+        )}
 
-        <div className="px-6">
+        <div className="px-6 pt-3">
           <div className="relative">
             <Search className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input

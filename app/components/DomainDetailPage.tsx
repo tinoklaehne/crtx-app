@@ -150,17 +150,6 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
                   <div className="flex items-start justify-between gap-4 mb-2 flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
                       <h1 className="text-4xl font-bold">{domain.name}</h1>
-                      {domain.status && (
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            domain.status.toLowerCase() === 'hot'
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
-                          }`}
-                        >
-                          {domain.status}
-                        </span>
-                      )}
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>

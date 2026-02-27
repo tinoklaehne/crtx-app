@@ -8,11 +8,11 @@ interface ClusterHeaderProps {
 
 export function ClusterHeader({ cluster }: ClusterHeaderProps) {
   return (
-    <div className="space-y-1">
-      <div className="text-sm text-muted-foreground uppercase tracking-wider">
+    <div className="space-y-1 min-w-0">
+      <div className="text-sm text-muted-foreground uppercase tracking-wider truncate">
         {cluster.domain}
       </div>
-      <h2 className="text-2xl font-semibold" style={{ color: cluster.colorCode }}>
+      <h2 className="text-2xl font-semibold truncate" style={{ color: cluster.colorCode }}>
         {cluster.name}
       </h2>
     </div>

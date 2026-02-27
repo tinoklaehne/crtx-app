@@ -77,20 +77,20 @@ export function TechnologyDetailSection({
 
       <div className="space-y-4">
         {cluster && (
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <div 
-              className="text-sm font-medium uppercase tracking-wider"
+              className="text-sm font-medium uppercase tracking-wider truncate"
               style={{ color: cluster.colorCode }}
             >
               {cluster.name}
             </div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wider">
+            <div className="text-xs text-muted-foreground uppercase tracking-wider truncate">
               {technology.domain}
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-2xl font-semibold">{technology.name}</h2>
+        <div className="flex items-center justify-between gap-4 min-w-0">
+          <h2 className="text-2xl font-semibold truncate">{technology.name}</h2>
         </div>
 
         {technology.imageUrl && (

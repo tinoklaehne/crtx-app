@@ -10,6 +10,7 @@ import { Sidepanel } from "../components/layout/Sidepanel";
 import { RadarVisualization } from "../components/radar/RadarVisualization";
 import { MatrixVisualization } from "../components/matrix/MatrixVisualization";
 import { TrendsKanbanView } from "../components/domains/TrendsKanbanView";
+import { TechnologyDetailModal } from "../components/domains/TechnologyDetailModal";
 import { useRadarStore } from "@/app/store/radarStore";
 import { useFilters } from "@/app/contexts/FilterContext";
 import type { Cluster } from "@/app/types/clusters";
@@ -41,6 +42,7 @@ export function RadarPage({
   const [clusterType, setClusterType] = useState<"parent" | "taxonomy" | "domain">("parent");
   const [radar, setRadar] = useState<Radar | null>(initialRadar || null);
   const [radars] = useState<Radar[]>(initialRadars);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const {
     technologies,
@@ -145,62 +147,81 @@ export function RadarPage({
     );
   }
 
+  const activeTechnologyCluster = activeTechnology
+    ? clusters.find((c) => c.id === activeTechnology.clusterId)
+    : undefined;
+
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      <Navbar 
-        activeView={activeView}
-        onViewChange={setActiveView}
-        radarName={radar?.name}
-      />
-      <RadarsSidepanel radars={radars} currentRadarId={radarId} />
-      <Sidepanel
-        clusters={clusters}
-        technologies={technologies}
-        activeView={activeView}
-        activeTechnology={activeTechnology}
-        activeCluster={activeCluster}
-        onTechnologySelect={handleTechnologySelect}
-        onClusterSelect={handleClusterSelect}
-        onNavigateTechnology={handleNavigateTechnology}
-        onNavigateCluster={handleNavigateCluster}
-        onViewChange={setActiveView}
-        nodePositioning={nodePositioning}
-        radarName={radar?.name}
-        universe={radar?.type === "Travel" ? "Travel" : "General"}
-      />
-      {viewMode === "matrix" ? (
-        <MatrixVisualization
-          clusters={clusters}
-          technologies={technologies}
-          onTechnologySelect={handleTechnologySelect}
-          onClusterSelect={handleClusterSelect}
-          nodePositioning={nodePositioning}
-          onNodePositioningChange={setNodePositioning}
-          view={viewMode}
-          onViewChange={setViewMode}
-          onKanbanView={() => <TrendsKanbanView trends={technologies} onTrendSelect={handleTechnologySelect} />}
+    <>
+      <div className="flex h-screen bg-background text-foreground">
+        <Navbar 
+          activeView={activeView}
+          onViewChange={setActiveView}
+          radarName={radar?.name}
         />
-      ) : (
-        <RadarVisualization
+        <RadarsSidepanel radars={radars} currentRadarId={radarId} />
+        <Sidepanel
           clusters={clusters}
           technologies={technologies}
+          activeView={activeView}
+          activeTechnology={activeTechnology}
+          activeCluster={activeCluster}
           onTechnologySelect={handleTechnologySelect}
           onClusterSelect={handleClusterSelect}
+          onNavigateTechnology={handleNavigateTechnology}
+          onNavigateCluster={handleNavigateCluster}
+          onViewChange={setActiveView}
           nodePositioning={nodePositioning}
-          onNodePositioningChange={setNodePositioning}
-          clusterType={clusterType}
-          onClusterTypeChange={handleClusterTypeChange}
-          view={viewMode}
-          onViewChange={setViewMode}
-          onKanbanView={() => <TrendsKanbanView trends={technologies} onTrendSelect={handleTechnologySelect} />}
+          radarName={radar?.name}
+          universe={radar?.type === "Travel" ? "Travel" : "General"}
+        />
+        {viewMode === "matrix" ? (
+          <MatrixVisualization
+            clusters={clusters}
+            technologies={technologies}
+            onTechnologySelect={handleTechnologySelect}
+            onClusterSelect={handleClusterSelect}
+            nodePositioning={nodePositioning}
+            onNodePositioningChange={setNodePositioning}
+            view={viewMode}
+            onViewChange={setViewMode}
+            onKanbanView={() => <TrendsKanbanView trends={technologies} onTrendSelect={handleTechnologySelect} />}
+          />
+        ) : (
+          <RadarVisualization
+            clusters={clusters}
+            technologies={technologies}
+            onTechnologySelect={handleTechnologySelect}
+            onClusterSelect={handleClusterSelect}
+            nodePositioning={nodePositioning}
+            onNodePositioningChange={setNodePositioning}
+            clusterType={clusterType}
+            onClusterTypeChange={handleClusterTypeChange}
+            view={viewMode}
+            onViewChange={setViewMode}
+            onKanbanView={() => <TrendsKanbanView trends={technologies} onTrendSelect={handleTechnologySelect} />}
+          />
+        )}
+      </div>
+
+      {activeTechnology && (
+        <TechnologyDetailModal
+          technology={activeTechnology}
+          cluster={activeTechnologyCluster}
+          clusters={clusters}
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onNavigate={handleNavigateTechnology}
+          signals={[]}
         />
       )}
-    </div>
+    </>
   );
 
   function handleTechnologySelect(tech: Trend) {
     setActiveTechnology(tech);
     setActiveView("detail");
+    setIsModalOpen(true);
   }
 
   function handleClusterSelect(cluster: Cluster | null) {
@@ -222,6 +243,11 @@ export function RadarPage({
       ? (currentIndex + 1) % technologies.length
       : (currentIndex - 1 + technologies.length) % technologies.length;
     setActiveTechnology(technologies[newIndex]);
+  }
+
+  function handleModalClose() {
+    setIsModalOpen(false);
+    setActiveView("technologies");
   }
 
   function handleNavigateCluster(direction: "prev" | "next") {

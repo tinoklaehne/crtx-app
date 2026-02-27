@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -91,6 +91,9 @@ export function TechnologyDetailModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 bg-background/95 backdrop-blur-sm border-2 [&>button]:hidden">
+        <DialogHeader className="sr-only">
+          <DialogTitle>{technology.name}</DialogTitle>
+        </DialogHeader>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">

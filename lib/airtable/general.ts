@@ -17,17 +17,27 @@ async function getClustersUncached(
   try {
     const base = getBase();
     const table = clusterType === "taxonomy" ? TAXONOMY_TABLE : TRENDS_TABLE;
+    // For parent/domain clusters we query the Trends table and filter by Scale/Universe.
+    // For taxonomy clusters we query the Taxonomy table, which may not have these fields,
+    // so we skip filterByFormula entirely to avoid INVALID_FILTER_BY_FORMULA.
     let filterFormula = clusterType === "taxonomy" ? "" : "{Scale} = 'Macro'";
-    if (universe) {
-      const universeFilter = `{universe} = '${universe}'`;
+    if (universe && clusterType !== "taxonomy") {
+      // Field is named 'Universe' (capital U) in Airtable (Trends table)
+      const universeFilter = `{Universe} = '${universe}'`;
       filterFormula = filterFormula ? `AND(${filterFormula}, ${universeFilter})` : universeFilter;
     }
     const records = await fetchWithRetry(() =>
       base(table)
-        .select({
-          filterByFormula: filterFormula,
-          sort: [{ field: 'Name', direction: 'asc' }]
-        })
+        .select(
+          filterFormula
+            ? {
+                filterByFormula: filterFormula,
+                sort: [{ field: "Name", direction: "asc" }],
+              }
+            : {
+                sort: [{ field: "Name", direction: "asc" }],
+              }
+        )
         .all()
     );
     return records.map(record => ({
@@ -71,7 +81,8 @@ export async function getTechnologies(
     const base = getBase();
     let filterFormula = "{Scale} = 'Micro'";
     if (universe) {
-      filterFormula = `AND(${filterFormula}, {universe} = '${universe}')`;
+      // Match Airtable 'Universe' field name
+      filterFormula = `AND(${filterFormula}, {Universe} = '${universe}')`;
     }
     const params: { sort: { field: string; direction: 'asc' }[]; filterByFormula: string } = {
       sort: [{ field: 'Name', direction: 'asc' }],

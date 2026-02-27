@@ -27,6 +27,7 @@ interface SidepanelProps {
   nodePositioning: NodePositioning;
   radarName?: string;
   universe?: "General" | "Travel";
+  showTechnologiesTitle?: boolean;
 }
 
 export function Sidepanel({
@@ -43,6 +44,7 @@ export function Sidepanel({
   nodePositioning,
   radarName,
   universe = "General",
+  showTechnologiesTitle = true,
 }: SidepanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -55,7 +57,7 @@ export function Sidepanel({
   }, [technologies, searchQuery]);
 
   return (
-    <ResizablePanel defaultWidth={320} minWidth={280} maxWidth={480} className="border-r bg-card">
+    <ResizablePanel defaultWidth={420} minWidth={320} maxWidth={640} className="border-r bg-card">
       <ScrollArea className="h-screen">
         {activeView === "home" && (
           <HomeSection />
@@ -78,6 +80,7 @@ export function Sidepanel({
             onClusterSelect={onClusterSelect}
             nodePositioning={nodePositioning}
             radarName={radarName}
+            showTitle={showTechnologiesTitle}
           />
         )}
         {activeView === "detail" && activeTechnology && (

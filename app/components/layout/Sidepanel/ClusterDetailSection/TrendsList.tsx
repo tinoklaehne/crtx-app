@@ -25,19 +25,27 @@ export function TrendsList({ cluster, trends, nodePositioning, onTrendSelect }: 
         </div>
       </div>
       <div className="-mx-6">
-        {sortedTrends.map((trend) => (
+        {sortedTrends.map((trend, index) => (
           <div
             key={trend.id}
             className="group relative py-3 hover:bg-secondary/50 cursor-pointer"
             onClick={() => onTrendSelect(trend)}
           >
             <div className="flex items-center justify-between px-6">
-              <h4 className="font-medium">{trend.name}</h4>
-              <div className="text-sm text-muted-foreground">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span
+                  className="text-sm w-8 tabular-nums flex-shrink-0"
+                  style={{ color: cluster.colorCode }}
+                >
+                  {(index + 1).toString().padStart(2, "0")}
+                </span>
+                <h4 className="font-medium truncate">{trend.name}</h4>
+              </div>
+              <div className="text-sm text-muted-foreground flex-shrink-0 ml-2">
                 {getReadinessLevel(trend, nodePositioning)}
               </div>
             </div>
-            <div 
+            <div
               className="absolute bottom-0 left-0 right-0 h-[2px] opacity-0 group-hover:opacity-100 transition-opacity"
               style={{ backgroundColor: cluster.colorCode }}
             />
