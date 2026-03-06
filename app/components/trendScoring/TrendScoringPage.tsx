@@ -180,23 +180,21 @@ export function TrendScoringPage({ allTrends }: { allTrends: Trend[] }) {
 
     // Update local state (treat submitted as latest).
     const now = new Date().toISOString();
-    setAssessments((prev) =>
-      latestBySubmittedAt([
-        ...prev,
-        ...metricScores.map((ms) => ({
-          id: `local:${trendId}:${ms.metricId}:${now}`,
-          cycleId: cycle.id,
-          cycleItemId,
-          trendId,
-          expertUserId: "me",
-          metricId: ms.metricId,
-          score: ms.score,
-          comment: ms.comment,
-          status: "Submitted",
-          submittedAt: now,
-        })),
-      ])
-    );
+    setAssessments((prev) => {
+      const newAssessments: TrendAssessment[] = metricScores.map((ms) => ({
+        id: `local:${trendId}:${ms.metricId}:${now}`,
+        cycleId: cycle.id,
+        cycleItemId,
+        trendId,
+        expertUserId: "me",
+        metricId: ms.metricId,
+        score: ms.score,
+        comment: ms.comment,
+        status: "Submitted",
+        submittedAt: now,
+      }));
+      return latestBySubmittedAt([...prev, ...newAssessments]);
+    });
   }
 
   function nextUnfinished(afterTrendId: string): string | null {

@@ -82,7 +82,7 @@ export function TrendCyclesPage({
     }
     setStartDateInput(selectedCycle.startDate?.slice(0, 10) ?? "");
     setEndDateInput(selectedCycle.endDate?.slice(0, 10) ?? "");
-  }, [selectedCycle?.id, selectedCycle?.startDate, selectedCycle?.endDate]);
+  }, [selectedCycle]);
 
   const visibleCycles = useMemo(() => {
     const list = cycles.slice();
