@@ -52,6 +52,7 @@ export async function getRadar(id: string): Promise<Radar | null> {
       lastModified: getField(record, 'Last Modified') || new Date().toISOString(),
       trends: getField(record, 'REL_Trends') || [],
       radarType: getField(record, 'Radar Type') || undefined,
+      trendCycleIds: (getField<string[]>(record, 'Trend Cycles') ?? getField<string[]>(record, 'REL_TrendCycles') ?? undefined) || undefined,
     };
   } catch (error) {
     console.error('Error fetching radar:', error);
@@ -94,6 +95,7 @@ export async function getAllRadars(): Promise<Radar[]> {
         lastModified: getField(record, 'Last Modified') || new Date().toISOString(),
         trends: getField(record, 'REL_Trends') || [],
         radarType: getField(record, 'Radar Type') || undefined,
+        trendCycleIds: (getField<string[]>(record, 'Trend Cycles') ?? getField<string[]>(record, 'REL_TrendCycles') ?? undefined) || undefined,
       };
     });
   } catch (error) {

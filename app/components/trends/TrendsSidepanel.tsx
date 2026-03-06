@@ -56,7 +56,6 @@ export function TrendsSidepanel({
 
   const isControlled = onShowSubscribedOnlyChange != null;
   const showSubscribedOnly = isControlled ? (controlledShowSubscribedOnly ?? false) : internalShowSubscribedOnly;
-  const subscribedTrendIds = isControlled ? (controlledSubscribedTrendIds ?? []) : internalSubscribedTrendIds;
 
   useEffect(() => {
     if (isControlled) return;
@@ -81,6 +80,10 @@ export function TrendsSidepanel({
   );
 
   const filteredTrends = useMemo(() => {
+    const subscribedTrendIds = isControlled
+      ? (controlledSubscribedTrendIds ?? [])
+      : internalSubscribedTrendIds;
+
     let list = trends;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -99,7 +102,15 @@ export function TrendsSidepanel({
       list = list.filter((t) => set.has(t.id));
     }
     return list;
-  }, [trends, searchQuery, selectedFilters, showSubscribedOnly, subscribedTrendIds]);
+  }, [
+    trends,
+    searchQuery,
+    selectedFilters,
+    showSubscribedOnly,
+    isControlled,
+    controlledSubscribedTrendIds,
+    internalSubscribedTrendIds,
+  ]);
 
   const currentTrendId = pathname?.startsWith("/trends/") ? pathname.replace("/trends/", "").split("/")[0] : null;
 

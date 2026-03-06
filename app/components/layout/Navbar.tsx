@@ -5,7 +5,16 @@ import { useRouter, usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { Logo } from "./Logo";
 import { NavItem } from "./NavItem";
-import { Radar, Grid3x3, Users, BookOpen, User as UserIcon, TrendingUp } from "lucide-react";
+import {
+  Radar,
+  Grid3x3,
+  Users,
+  BookOpen,
+  User as UserIcon,
+  TrendingUp,
+  Repeat,
+  ClipboardCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserProfileModal } from "@/app/components/user/UserProfileModal";
 import type { User } from "@/app/types/users";
@@ -89,6 +98,10 @@ export function Navbar({
           ? "library"
           : pathname?.startsWith("/trends")
             ? "trends"
+            : pathname?.startsWith("/trend-cycles")
+              ? "trend-cycles"
+              : pathname?.startsWith("/trend-scoring")
+                ? "trend-scoring"
             : pathname === "/radars" || pathname === "/radars/"
               ? "radars"
               : null;
@@ -98,6 +111,8 @@ export function Navbar({
   const canSeeRadars = !user || user.radarsAccess;
   const canSeeDirectory = !user || user.directoryAccess;
   const canSeeLibrary = !user || user.libraryAccess;
+  const canSeeTrendCycles = !user || Boolean(user.trendCyclesAccess);
+  const canSeeTrendScoring = !user || Boolean(user.trendScoringAccess);
 
   return (
     <>
@@ -119,6 +134,22 @@ export function Navbar({
               isActive={activeMiniApp === "trends"}
               onClick={() => router.push("/trends")}
               label="Trends"
+            />
+          )}
+          {canSeeTrendCycles && (
+            <NavItem
+              icon={Repeat}
+              isActive={activeMiniApp === "trend-cycles"}
+              onClick={() => router.push("/trend-cycles")}
+              label="Trend Cycles"
+            />
+          )}
+          {canSeeTrendScoring && (
+            <NavItem
+              icon={ClipboardCheck}
+              isActive={activeMiniApp === "trend-scoring"}
+              onClick={() => router.push("/trend-scoring")}
+              label="Trend Scoring"
             />
           )}
           {canSeeRadars && (

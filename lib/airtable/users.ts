@@ -32,6 +32,8 @@ function mapRecordToUser(record: any): User {
     radarsAccess: Boolean(getField<boolean>(record, "Radars")),
     trendsAccess: Boolean(getField<boolean>(record, "Trends")),
     libraryAccess: Boolean(getField<boolean>(record, "Library")),
+    trendCyclesAccess: Boolean(getField<boolean>(record, "Cycles")),
+    trendScoringAccess: Boolean(getField<boolean>(record, "Scoring")),
     subscribedDomainIds,
     subscribedReportIds,
     subscribedTrendIds,
@@ -83,6 +85,24 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   } catch (error) {
     console.error("Error fetching user by email:", error);
     return null;
+  }
+}
+
+export async function getAllUsers(): Promise<User[]> {
+  try {
+    const base = getBase();
+    const records = await fetchWithRetry(() =>
+      base(USERS_TABLE)
+        .select({
+          sort: [{ field: "Name", direction: "asc" }],
+          maxRecords: 200,
+        })
+        .all()
+    );
+    return records.map(mapRecordToUser);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return [];
   }
 }
 

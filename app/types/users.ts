@@ -14,6 +14,10 @@ export interface User {
   radarsAccess: boolean;
   trendsAccess: boolean;
   libraryAccess: boolean;
+  /** Trend cycle manager app */
+  trendCyclesAccess?: boolean;
+  /** Trend scoring expert app */
+  trendScoringAccess?: boolean;
 
   /** Linked record IDs of subscribed domains from \"My_Domains\" column */
   subscribedDomainIds: string[];

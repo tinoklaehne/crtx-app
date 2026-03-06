@@ -12,4 +12,6 @@ export interface Radar {
   trends: string[];
   /** From Airtable "Radar Type" – e.g. "Standalone" for sidepanel filter */
   radarType?: string;
+  /** Optional: linked trend cycle(s) that supplied this radar’s long/short list */
+  trendCycleIds?: string[];
 }
