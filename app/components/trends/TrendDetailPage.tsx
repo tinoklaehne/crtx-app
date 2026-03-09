@@ -2,11 +2,17 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleOff, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TRLTooltip } from "@/app/components/ui/trl-tooltip";
 import { BRLTooltip } from "@/app/components/ui/brl-tooltip";
 import { TrendHorizonTooltip } from "@/app/components/ui/trend-horizon-tooltip";
@@ -16,7 +22,7 @@ import type { Cluster } from "@/app/types/clusters";
 interface TrendDetailPageProps {
   trend: Trend;
   cluster?: Cluster | null;
-  signals?: Array<{ id: string; headline: string; date?: string; url?: string }>;
+  signals?: Array<{ id: string; headline: string; date?: string; url?: string; status?: string }>;
 }
 
 export function TrendDetailPage({
@@ -31,6 +37,12 @@ export function TrendDetailPage({
   });
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [localSignals, setLocalSignals] = useState(signals);
+  const [pendingStatusById, setPendingStatusById] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setLocalSignals(signals);
+  }, [signals]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +99,42 @@ export function TrendDetailPage({
   const horizonLabel = horizonLabels[trend.trendHorizon] || `${trend.trendHorizon} years`;
 
   const iconSrc = trend.iconUrl ?? trend.imageUrl;
+
+  async function handleSignalStatusChange(
+    e: React.MouseEvent,
+    signalId: string,
+    status: "Auto" | "Noise" | "Delete"
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pendingStatusById[signalId]) return;
+    setPendingStatusById((prev) => ({ ...prev, [signalId]: true }));
+
+    const previousSignals = localSignals;
+    if (status !== "Auto") {
+      setLocalSignals((prev) => prev.filter((signal) => signal.id !== signalId));
+    }
+
+    try {
+      const res = await fetch("/api/user/action-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionId: signalId, status }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update signal status");
+      }
+    } catch (error) {
+      console.error(error);
+      setLocalSignals(previousSignals);
+    } finally {
+      setPendingStatusById((prev) => {
+        const next = { ...prev };
+        delete next[signalId];
+        return next;
+      });
+    }
+  }
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -377,11 +425,11 @@ export function TrendDetailPage({
             <div className="space-y-4 border-t pt-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Signals</h3>
-                <span className="text-sm text-muted-foreground">Total Signals: {signals.length}</span>
+                <span className="text-sm text-muted-foreground">Total Signals: {localSignals.length}</span>
               </div>
-              {signals.length > 0 ? (
+              {localSignals.length > 0 ? (
                 <div className="space-y-3">
-                  {signals.map((signal) => (
+                  {localSignals.map((signal) => (
                     <div
                       key={signal.id}
                       className="flex cursor-pointer items-start gap-4 rounded-lg p-3 transition-colors hover:bg-secondary/50"
@@ -399,6 +447,30 @@ export function TrendDetailPage({
                       )}
                       <div className="flex-1">
                         <p className="text-sm leading-relaxed">{signal.headline}</p>
+                      </div>
+                      <div className="ml-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              disabled={!!pendingStatusById[signal.id]}
+                              className="px-2 py-1 text-xs border rounded hover:bg-secondary disabled:opacity-50 inline-flex items-center gap-1"
+                            >
+                              <SlidersHorizontal className="h-3 w-3" />
+                              Status
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => handleSignalStatusChange(e, signal.id, "Noise")}>
+                              <CircleOff className="h-4 w-4 mr-2" />
+                              Noise
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => handleSignalStatusChange(e, signal.id, "Delete")}>
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   ))}

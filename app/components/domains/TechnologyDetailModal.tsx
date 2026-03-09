@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CircleOff, SlidersHorizontal, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { HelpCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TRLTooltip } from "@/app/components/ui/trl-tooltip";
 import { BRLTooltip } from "@/app/components/ui/brl-tooltip";
 import { TrendHorizonTooltip } from "@/app/components/ui/trend-horizon-tooltip";
@@ -25,6 +31,7 @@ interface TechnologyDetailModalProps {
     headline: string;
     date?: string;
     url?: string;
+    status?: string;
   }>;
 }
 
@@ -46,8 +53,8 @@ export function TechnologyDetailModal({
     trl: false,
     brl: false,
   });
-
-  if (!technology) return null;
+  const [localSignals, setLocalSignals] = useState(signals);
+  const [pendingStatusById, setPendingStatusById] = useState<Record<string, boolean>>({});
 
   const toggleSection = (section: 'horizon' | 'trl' | 'brl') => {
     setExpandedSections(prev => ({
@@ -55,6 +62,12 @@ export function TechnologyDetailModal({
       [section]: !prev[section]
     }));
   };
+
+  useEffect(() => {
+    setLocalSignals(signals);
+  }, [signals]);
+
+  if (!technology) return null;
 
   const clusterColor = cluster?.colorCode || "#00ff80";
   
@@ -87,6 +100,42 @@ export function TechnologyDetailModal({
     "15+": 20,
   };
   const horizonProgress = horizonProgressMap[technology.trendHorizon] || 50;
+
+  async function handleSignalStatusChange(
+    e: React.MouseEvent,
+    signalId: string,
+    status: "Auto" | "Noise" | "Delete"
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pendingStatusById[signalId]) return;
+    setPendingStatusById((prev) => ({ ...prev, [signalId]: true }));
+
+    const previousSignals = localSignals;
+    if (status !== "Auto") {
+      setLocalSignals((prev) => prev.filter((signal) => signal.id !== signalId));
+    }
+
+    try {
+      const res = await fetch("/api/user/action-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionId: signalId, status }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update signal status");
+      }
+    } catch (error) {
+      console.error(error);
+      setLocalSignals(previousSignals);
+    } finally {
+      setPendingStatusById((prev) => {
+        const next = { ...prev };
+        delete next[signalId];
+        return next;
+      });
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -418,12 +467,12 @@ export function TechnologyDetailModal({
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Signals</h3>
                   <span className="text-sm text-muted-foreground">
-                    Total Signals: {signals.length}
+                    Total Signals: {localSignals.length}
                   </span>
                 </div>
-                {signals.length > 0 ? (
+                {localSignals.length > 0 ? (
                   <div className="space-y-3">
-                    {signals.map((signal) => (
+                    {localSignals.map((signal) => (
                       <div
                         key={signal.id}
                         className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
@@ -443,6 +492,30 @@ export function TechnologyDetailModal({
                         )}
                         <div className="flex-1">
                           <p className="text-sm leading-relaxed">{signal.headline}</p>
+                        </div>
+                        <div className="ml-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                disabled={!!pendingStatusById[signal.id]}
+                                className="px-2 py-1 text-xs border rounded hover:bg-secondary disabled:opacity-50 inline-flex items-center gap-1"
+                              >
+                                <SlidersHorizontal className="h-3 w-3" />
+                                Status
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={(e) => handleSignalStatusChange(e, signal.id, "Noise")}>
+                                <CircleOff className="h-4 w-4 mr-2" />
+                                Noise
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => handleSignalStatusChange(e, signal.id, "Delete")}>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     ))}

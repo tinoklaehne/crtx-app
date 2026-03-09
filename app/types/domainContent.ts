@@ -11,6 +11,7 @@ export interface DomainContentItem {
   date?: string;
   source?: string;
   signalType?: string; // Signal type from Actions table
+  status?: "Auto" | "Checked" | "Noise" | "Delete" | string;
   // For trends
   trend?: Trend;
   // For profiles

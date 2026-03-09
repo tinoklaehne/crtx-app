@@ -7,10 +7,14 @@ import { Navbar } from "@/app/components/layout/Navbar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { DomainContentList } from "@/app/components/domains/DomainContentList";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Loader2, Search } from "lucide-react";
 import type { DomainContentItem } from "@/app/types/domainContent";
 import type { Report } from "@/app/types/reports";
 import type { Trend } from "@/app/types/trends";
 import type { Actor } from "@/app/types/actors";
+import type { PowerSearchGroupedResults, PowerSearchItem } from "@/app/types/search";
 
 // Helper to safely convert Airtable values to strings (handles specialValue objects)
 function safeString(value: unknown): string {
@@ -21,6 +25,21 @@ function safeString(value: unknown): string {
     return String((value as { specialValue: unknown }).specialValue);
   }
   return String(value);
+}
+
+const MIN_SEARCH_QUERY_LENGTH = 2;
+const BASE_GROUP_LIMIT = 10;
+const GROUP_LOAD_STEP = 20;
+type ExpandableGroupKey = "trends" | "reports";
+
+function emptySearchResults(): PowerSearchGroupedResults {
+  return {
+    signals: [],
+    domains: [],
+    trends: [],
+    reports: [],
+    actors: [],
+  };
 }
 
 export function HomePage() {
@@ -41,6 +60,24 @@ export function HomePage() {
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [trendsError, setTrendsError] = useState<string | null>(null);
   const [actorsError, setActorsError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<PowerSearchGroupedResults>(
+    emptySearchResults()
+  );
+  const [groupLimits, setGroupLimits] = useState<Record<ExpandableGroupKey, number>>({
+    trends: BASE_GROUP_LIMIT,
+    reports: BASE_GROUP_LIMIT,
+  });
+  const [loadingMoreGroup, setLoadingMoreGroup] = useState<ExpandableGroupKey | null>(
+    null
+  );
+  const [groupExhausted, setGroupExhausted] = useState<Record<ExpandableGroupKey, boolean>>({
+    trends: false,
+    reports: false,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +141,146 @@ export function HomePage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 250);
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const query = debouncedQuery.trim();
+    if (query.length < MIN_SEARCH_QUERY_LENGTH) {
+      setSearchLoading(false);
+      setSearchError(null);
+      setSearchResults(emptySearchResults());
+      setGroupLimits({ trends: BASE_GROUP_LIMIT, reports: BASE_GROUP_LIMIT });
+      setGroupExhausted({ trends: false, reports: false });
+      return;
+    }
+
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 10000);
+    let cancelled = false;
+
+    async function loadPowerSearch() {
+      try {
+        setSearchLoading(true);
+        setSearchError(null);
+        const res = await fetch(
+          `/api/search/power?q=${encodeURIComponent(query)}&limit=${BASE_GROUP_LIMIT}`,
+          { signal: controller.signal }
+        );
+        const contentType = res.headers.get("content-type") ?? "";
+        let data: { results?: PowerSearchGroupedResults } | null = null;
+        if (contentType.includes("application/json")) {
+          data = await res.json().catch(() => null);
+        }
+        if (!res.ok) {
+          if (!cancelled) {
+            setSearchResults(emptySearchResults());
+            setSearchError(`Could not search (status ${res.status}).`);
+          }
+          return;
+        }
+        if (!cancelled) {
+          setSearchResults(data?.results ?? emptySearchResults());
+          setGroupLimits({ trends: BASE_GROUP_LIMIT, reports: BASE_GROUP_LIMIT });
+          setGroupExhausted({ trends: false, reports: false });
+        }
+      } catch (err) {
+        if ((err as { name?: string }).name === "AbortError") {
+          if (!cancelled && timedOut) {
+            setSearchError("Search is taking too long. Please try another keyword.");
+          }
+          return;
+        }
+        console.error(err);
+        if (!cancelled) {
+          setSearchResults(emptySearchResults());
+          setSearchError("Could not run search right now.");
+        }
+      } finally {
+        clearTimeout(timeout);
+        if (!cancelled) {
+          setSearchLoading(false);
+        }
+      }
+    }
+
+    loadPowerSearch();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [debouncedQuery]);
+
+  const groupedResults: Array<{
+    key: keyof PowerSearchGroupedResults;
+    label: string;
+    items: PowerSearchItem[];
+  }> = [
+    { label: "Signals", items: searchResults.signals, key: "signals" as const },
+    { label: "Domains", items: searchResults.domains, key: "domains" as const },
+    { label: "Trends", items: searchResults.trends, key: "trends" as const },
+    { label: "Reports", items: searchResults.reports, key: "reports" as const },
+    { label: "Actors", items: searchResults.actors, key: "actors" as const },
+  ];
+
+  const totalSearchResults = groupedResults.reduce(
+    (sum, group) => sum + group.items.length,
+    0
+  );
+
+  const showSearchPanel = debouncedQuery.trim().length >= MIN_SEARCH_QUERY_LENGTH;
+
+  function handlePowerSearchSelect(item: PowerSearchItem) {
+    if (item.external) {
+      window.open(item.href, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(item.href);
+  }
+
+  function submitPowerSearch() {
+    const nextQuery = searchQuery.trim();
+    setDebouncedQuery(nextQuery);
+  }
+
+  async function handleLoadMoreGroup(group: ExpandableGroupKey) {
+    const query = debouncedQuery.trim();
+    if (query.length < MIN_SEARCH_QUERY_LENGTH) return;
+    if (loadingMoreGroup) return;
+
+    const nextLimit = groupLimits[group] + GROUP_LOAD_STEP;
+    setLoadingMoreGroup(group);
+    try {
+      const res = await fetch(
+        `/api/search/power?q=${encodeURIComponent(query)}&scope=${group}&limit=${nextLimit}`
+      );
+      const data: { results?: PowerSearchGroupedResults } | null = await res
+        .json()
+        .catch(() => null);
+      if (!res.ok || !data?.results) return;
+
+      const nextItems = data.results[group] ?? [];
+      setSearchResults((prev) => ({ ...prev, [group]: nextItems }));
+      setGroupLimits((prev) => ({ ...prev, [group]: nextLimit }));
+      setGroupExhausted((prev) => ({ ...prev, [group]: nextItems.length < nextLimit }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingMoreGroup(null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -265,6 +442,106 @@ export function HomePage() {
             <p className="text-muted-foreground text-lg mb-6">
               Explore domains, news data, profiles, and trend radars.
             </p>
+            <div className="mb-8 rounded-xl border bg-card/60 p-4 md:p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Search className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold">Power Search</p>
+              </div>
+              <form
+                className="flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitPowerSearch();
+                }}
+              >
+                <Input
+                  placeholder="Search signals, domains, trends, reports, actors..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-12 text-base"
+                />
+                <Button type="submit" className="h-12 px-5">
+                  {searchLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  <span className="ml-2">Search</span>
+                </Button>
+              </form>
+              <p className="text-xs text-muted-foreground mt-2">
+                Live search updates while typing. Press Enter or Search to run immediately.
+              </p>
+              {showSearchPanel && (
+                <div className="mt-3 border rounded-lg bg-card max-h-[420px] overflow-auto">
+                  {searchLoading ? (
+                    <p className="text-sm text-muted-foreground p-4">Searching across all content...</p>
+                  ) : searchError ? (
+                    <p className="text-sm text-destructive p-4">{searchError}</p>
+                  ) : totalSearchResults === 0 ? (
+                    <p className="text-sm text-muted-foreground p-4">No results found.</p>
+                  ) : (
+                    <div className="divide-y">
+                      {groupedResults
+                        .filter((group) => group.items.length > 0)
+                        .map((group) => (
+                          <div key={group.label} className="p-3">
+                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                              {group.label} ({group.items.length})
+                            </div>
+                            <div className="space-y-1">
+                              {group.items.map((item) => (
+                                <button
+                                  key={`${item.type}-${item.id}`}
+                                  type="button"
+                                  onClick={() => handlePowerSearchSelect(item)}
+                                  className="w-full text-left p-2 rounded-md hover:bg-secondary/60 transition-colors"
+                                >
+                                  <div className="text-sm font-medium">{item.title}</div>
+                                  {(item.subtitle || item.meta) && (
+                                    <div className="text-xs text-muted-foreground line-clamp-1">
+                                      {item.subtitle}
+                                      {item.subtitle && item.meta ? " - " : ""}
+                                      {item.meta}
+                                    </div>
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+                            {(group.key === "trends" || group.key === "reports") &&
+                              !groupExhausted[group.key as ExpandableGroupKey] && (
+                                <div className="mt-2 flex justify-end">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleLoadMoreGroup(group.key as ExpandableGroupKey)
+                                    }
+                                    disabled={
+                                      loadingMoreGroup ===
+                                      (group.key as ExpandableGroupKey)
+                                    }
+                                  >
+                                    {loadingMoreGroup ===
+                                    (group.key as ExpandableGroupKey) ? (
+                                      <>
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                                        Loading...
+                                      </>
+                                    ) : (
+                                      `Search more ${group.label}`
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <Tabs
               value={activeTab}

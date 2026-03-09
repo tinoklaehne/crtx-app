@@ -20,8 +20,14 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import { ExternalLink } from "lucide-react";
+import { CircleOff, ExternalLink, SlidersHorizontal, Trash2 } from "lucide-react";
 import { DropdownFilter, type FilterCategory } from "@/components/ui/dropdown-filter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface DomainContentListProps {
   items: DomainContentItem[];
@@ -32,6 +38,8 @@ interface DomainContentListProps {
 type SortOrder = "newest" | "oldest";
 
 export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 10, domainNames = {} }: DomainContentListProps) {
+  const [localItems, setLocalItems] = useState<DomainContentItem[]>(items);
+  const [pendingStatusById, setPendingStatusById] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({
     signalType: [],
@@ -41,28 +49,32 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
 
+  useEffect(() => {
+    setLocalItems(items);
+  }, [items]);
+
   // Get unique signal types for filter
   const signalTypes = useMemo(() => {
     const types = new Set<string>();
-    items.forEach(item => {
+    localItems.forEach(item => {
       if (item.signalType) {
         types.add(item.signalType);
       }
     });
     return Array.from(types).sort();
-  }, [items]);
+  }, [localItems]);
 
   // Get unique domains for filter
   const uniqueDomains = useMemo(() => {
     const domainSet = new Set<string>();
-    items.forEach(item => {
+    localItems.forEach(item => {
       const domainId = item.metadata?.domainId;
       if (domainId && domainNames[domainId]) {
         domainSet.add(domainId);
       }
     });
     return Array.from(domainSet);
-  }, [items, domainNames]);
+  }, [localItems, domainNames]);
 
   // Build filter categories
   const filterCategories = useMemo<FilterCategory[]>(() => {
@@ -97,7 +109,7 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
 
   // Filter and sort items
   const filteredAndSortedItems = useMemo(() => {
-    let filtered = items;
+    let filtered = localItems;
 
     // Search filter
     if (searchQuery.trim()) {
@@ -143,7 +155,7 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
     });
 
     return filtered;
-  }, [items, searchQuery, selectedFilters, sortOrder]);
+  }, [localItems, searchQuery, selectedFilters, sortOrder]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedItems.length / itemsPerPage);
@@ -156,12 +168,53 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
     setCurrentPage(1);
   }, [searchQuery, selectedFilters, sortOrder, itemsPerPage]);
 
-  if (items.length === 0) {
+  if (localItems.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <p>No content available in this category.</p>
       </div>
     );
+  }
+
+  async function handleStatusChange(
+    e: React.MouseEvent,
+    item: DomainContentItem,
+    status: "Auto" | "Noise" | "Delete"
+  ) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pendingStatusById[item.id]) return;
+    setPendingStatusById((prev) => ({ ...prev, [item.id]: true }));
+
+    const previousItems = localItems;
+    const shouldHide = status !== "Auto";
+    if (shouldHide) {
+      setLocalItems((prev) => prev.filter((it) => it.id !== item.id));
+    } else {
+      setLocalItems((prev) =>
+        prev.map((it) => (it.id === item.id ? { ...it, status } : it))
+      );
+    }
+
+    try {
+      const res = await fetch("/api/user/action-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actionId: item.id, status }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update signal status");
+      }
+    } catch (error) {
+      console.error(error);
+      setLocalItems(previousItems);
+    } finally {
+      setPendingStatusById((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+    }
   }
 
   return (
@@ -310,6 +363,30 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
                     )}
                     {item.source && <span>Source: {item.source}</span>}
                   </div>
+                </div>
+                <div className="ml-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={!!pendingStatusById[item.id]}
+                        className="px-2 py-1 text-xs border rounded hover:bg-secondary disabled:opacity-50 inline-flex items-center gap-1"
+                      >
+                        <SlidersHorizontal className="h-3 w-3" />
+                        Status
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={(e) => handleStatusChange(e, item, "Noise")}>
+                        <CircleOff className="h-4 w-4 mr-2" />
+                        Noise
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => handleStatusChange(e, item, "Delete")}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>

@@ -9,6 +9,7 @@ import type { Domain } from '@/app/types/domains';
 import type { Chart } from '@/app/types/charts';
 import type { Analysis } from '@/app/types/analyses';
 import type { AirtableAttachment } from '@/app/types/airtable';
+import { isVisibleActionStatus } from './actions';
 
 // Table names
 const TAXONOMY_TABLE = 'tbld5CXEcljomMMQB';
@@ -332,6 +333,7 @@ function mapActionToContentItem(record: any): DomainContentItem {
     date: getField(record, 'Date') || getField(record, 'Created Time') || getField(record, 'Created') || undefined,
     source: getField(record, 'Source') || undefined,
     signalType: signalType,
+    status: getField<string>(record, 'Status') || undefined,
     metadata: {
       keywords: getField(record, 'Keywords') || undefined,
       iconAi: getField(record, 'Icon AI') || getField(record, 'IconAI') || undefined,
@@ -385,7 +387,10 @@ export async function getDomainContent(domainId: string): Promise<DomainTabConte
     }
 
     // Map Actions directly to content items (Actions = Signals/News)
-    const nowContent: DomainContentItem[] = actionRecords.map(record => 
+    const visibleActionRecords = actionRecords.filter((record) =>
+      isVisibleActionStatus(getField<string>(record, "Status") ?? "Auto")
+    );
+    const nowContent: DomainContentItem[] = visibleActionRecords.map(record =>
       mapActionToContentItem(record)
     );
     

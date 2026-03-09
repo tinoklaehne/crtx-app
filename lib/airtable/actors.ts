@@ -2,6 +2,7 @@ import { getBase, getField, fetchWithRetry } from './utils';
 import type { Actor } from '@/app/types/actors';
 import type { DomainContentItem } from '@/app/types/domainContent';
 import type { AirtableAttachment } from '@/app/types/airtable';
+import { isVisibleActionStatus } from './actions';
 
 // Icon AI: Airtable can store URL string or attachment(s). Return first URL.
 function getIconAiUrl(record: any): string | undefined {
@@ -169,6 +170,7 @@ function mapActionToContentItem(record: any): DomainContentItem {
     date: getField(record, 'Date') ?? getField(record, 'Created Time') ?? getField(record, 'Created') ?? undefined,
     source: getField(record, 'Source') ?? undefined,
     signalType: signalType,
+    status: getField<string>(record, 'Status') ?? undefined,
     metadata: {
       keywords: getField(record, 'Keywords') ?? undefined,
       iconAi: getField(record, 'Icon AI') ?? getField(record, 'IconAI') ?? undefined,
@@ -196,7 +198,10 @@ export async function getActorActions(actorId: string): Promise<DomainContentIte
     }
 
     const actionRecords = await fetchRecordsByIds(ACTIONS_TABLE, actionsField);
-    return actionRecords.map(mapActionToContentItem);
+    const visibleActionRecords = actionRecords.filter((record) =>
+      isVisibleActionStatus(getField<string>(record, "Status") ?? "Auto")
+    );
+    return visibleActionRecords.map(mapActionToContentItem);
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('Failed to fetch actor actions:', error);
