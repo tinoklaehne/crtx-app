@@ -21,6 +21,7 @@ interface CreateRadarModalProps {
     description?: string;
     trendIds?: string[];
     status?: string;
+    ownerIds?: string[];
   };
   allowStatusChange?: boolean;
   ownerOptions?: { id: string; name: string; email?: string }[];
