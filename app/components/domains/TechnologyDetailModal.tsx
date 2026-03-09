@@ -17,6 +17,10 @@ import {
 import { TRLTooltip } from "@/app/components/ui/trl-tooltip";
 import { BRLTooltip } from "@/app/components/ui/brl-tooltip";
 import { TrendHorizonTooltip } from "@/app/components/ui/trend-horizon-tooltip";
+import {
+  SignalActionModal,
+  type SignalActionModalData,
+} from "@/app/components/signals/SignalActionModal";
 import type { Trend, Cluster } from "@/app/types";
 
 interface TechnologyDetailModalProps {
@@ -55,6 +59,8 @@ export function TechnologyDetailModal({
   });
   const [localSignals, setLocalSignals] = useState(signals);
   const [pendingStatusById, setPendingStatusById] = useState<Record<string, boolean>>({});
+  const [selectedSignal, setSelectedSignal] = useState<SignalActionModalData | null>(null);
+  const [isSignalModalOpen, setIsSignalModalOpen] = useState(false);
 
   const toggleSection = (section: 'horizon' | 'trl' | 'brl') => {
     setExpandedSections(prev => ({
@@ -477,9 +483,16 @@ export function TechnologyDetailModal({
                         key={signal.id}
                         className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
                         onClick={() => {
-                          if (signal.url) {
-                            window.open(signal.url, '_blank', 'noopener,noreferrer');
-                          }
+                          setSelectedSignal({
+                            title: signal.headline,
+                            summary: undefined,
+                            date: signal.date,
+                            source: undefined,
+                            signalType: undefined,
+                            area: technology.domain,
+                            url: signal.url,
+                          });
+                          setIsSignalModalOpen(true);
                         }}
                       >
                         {signal.date && (
@@ -529,6 +542,11 @@ export function TechnologyDetailModal({
             </div>
           </ScrollArea>
         </div>
+        <SignalActionModal
+          signal={selectedSignal}
+          isOpen={isSignalModalOpen}
+          onClose={() => setIsSignalModalOpen(false)}
+        />
       </DialogContent>
     </Dialog>
   );

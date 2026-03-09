@@ -15,6 +15,7 @@ import { isVisibleActionStatus } from './actions';
 const TAXONOMY_TABLE = 'tbld5CXEcljomMMQB';
 const ACTIONS_TABLE = 'tblA0KRyRnM763cXy'; // Actions table (same as Signals/News)
 const TRENDS_TABLE = 'tblZ683rmMtm6BkyL'; // Trends table
+const ACTORS_TABLE = 'tblFiHksu7YbAFvQw'; // Actors table
 const CHARTS_TABLE = 'tblwTkOHsRShGxXIV'; // Charts table
 const ANALYSES_TABLE = 'tblsRiqbpoiaBCuVU'; // Analyses table
 
@@ -324,12 +325,31 @@ function mapActionToContentItem(record: any): DomainContentItem {
     console.log('No headline found for record:', record.id, 'Available fields:', Object.keys(record.fields || {}));
   }
 
+  const relActorField =
+    getField<string | string[]>(record, 'REL Actor') ??
+    getField<string | string[]>(record, '(REL) Actor') ??
+    getField<string | string[]>(record, 'REL_Actor') ??
+    undefined;
+  const relActors = Array.isArray(relActorField)
+    ? relActorField.filter(Boolean)
+    : relActorField
+      ? [relActorField]
+      : [];
+
   return {
     id: record.id,
     type: contentType,
     title: headline,
-    description: getField(record, 'Description') || undefined,
-    url: getField(record, 'URL') || getField(record, 'Url') || getField(record, 'Link') || undefined,
+    description:
+      getTextValue(record, 'Feedly/Leo Summary') ||
+      getTextValue(record, 'Description') ||
+      undefined,
+    url:
+      getTextValue(record, 'Source Link') ||
+      getTextValue(record, 'URL') ||
+      getTextValue(record, 'Url') ||
+      getTextValue(record, 'Link') ||
+      undefined,
     date: getField(record, 'Date') || getField(record, 'Created Time') || getField(record, 'Created') || undefined,
     source: getField(record, 'Source') || undefined,
     signalType: signalType,
@@ -337,8 +357,13 @@ function mapActionToContentItem(record: any): DomainContentItem {
     metadata: {
       keywords: getField(record, 'Keywords') || undefined,
       iconAi: getField(record, 'Icon AI') || getField(record, 'IconAI') || undefined,
+      actors: relActors,
     },
   };
+}
+
+function isLikelyAirtableRecordId(value: string): boolean {
+  return /^rec[a-zA-Z0-9]{14}$/.test(value);
 }
 
 // Fetch domain content organized by Now/New/Next
@@ -386,13 +411,51 @@ export async function getDomainContent(domainId: string): Promise<DomainTabConte
       if (firstRecord.fields) console.log('First record sample:', { id: firstRecord.id, fields: Object.keys(firstRecord.fields), headlineAttempt: getField<string>(firstRecord, 'Headline'), nameAttempt: getField<string>(firstRecord, 'Name') });
     }
 
-    // Map Actions directly to content items (Actions = Signals/News)
     const visibleActionRecords = actionRecords.filter((record) =>
       isVisibleActionStatus(getField<string>(record, "Status") ?? "Auto")
     );
-    const nowContent: DomainContentItem[] = visibleActionRecords.map(record =>
-      mapActionToContentItem(record)
+    const actorIds = Array.from(
+      new Set(
+        visibleActionRecords.flatMap((record) => {
+          const relActorField =
+            getField<string | string[]>(record, "REL Actor") ??
+            getField<string | string[]>(record, "(REL) Actor") ??
+            getField<string | string[]>(record, "REL_Actor") ??
+            [];
+          const values = Array.isArray(relActorField)
+            ? relActorField
+            : relActorField
+              ? [relActorField]
+              : [];
+          return values.filter(
+            (value): value is string => typeof value === "string" && isLikelyAirtableRecordId(value)
+          );
+        })
+      )
     );
+
+    let actorNameById: Record<string, string> = {};
+    if (actorIds.length > 0) {
+      const actorRecords = await fetchLinkedRecords(ACTORS_TABLE, actorIds);
+      actorNameById = Object.fromEntries(
+        actorRecords.map((record) => [record.id, getTextValue(record, "Name") || record.id])
+      );
+    }
+
+    // Map Actions directly to content items (Actions = Signals/News)
+    const nowContent: DomainContentItem[] = visibleActionRecords.map((record) => {
+      const item = mapActionToContentItem(record);
+      const actors = Array.isArray(item.metadata?.actors)
+        ? (item.metadata.actors as string[]).map((actor) => actorNameById[actor] ?? actor)
+        : [];
+      return {
+        ...item,
+        metadata: {
+          ...(item.metadata ?? {}),
+          actors,
+        },
+      };
+    });
     
     return {
       now: nowContent,

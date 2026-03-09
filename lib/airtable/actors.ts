@@ -22,6 +22,10 @@ const ACTORS_TABLE = 'tblFiHksu7YbAFvQw';
 const ACTORLISTS_TABLE = 'tblk1fsb6Gr5DoN9v';
 const ACTIONS_TABLE = 'tblA0KRyRnM763cXy'; // Actions table (same as Signals/News)
 
+function isLikelyAirtableRecordId(value: string): boolean {
+  return /^rec[a-zA-Z0-9]{14}$/.test(value);
+}
+
 export async function getAllActors(): Promise<Actor[]> {
   const base = getBase();
   const records = await fetchWithRetry(
@@ -116,6 +120,19 @@ async function fetchRecordsByIds(tableName: string, recordIds: string[], batchSi
 
 /** Maps Action/Signal/News records to DomainContentItem format. */
 function mapActionToContentItem(record: any): DomainContentItem {
+  const toTextValue = (value: unknown): string | undefined => {
+    if (value == null) return undefined;
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (typeof value === "object" && "value" in (value as Record<string, unknown>)) {
+      const inner = (value as { value?: unknown }).value;
+      if (inner == null) return undefined;
+      if (typeof inner === "string") return inner;
+      if (typeof inner === "number" || typeof inner === "boolean") return String(inner);
+    }
+    return undefined;
+  };
+
   const signalType =
     getField<string>(record, 'Action Type') ??
     getField<string>(record, 'action type') ??
@@ -148,6 +165,16 @@ function mapActionToContentItem(record: any): DomainContentItem {
     getField<string | string[]>(record, 'REL_Domain') ??
     undefined;
   const domainId = Array.isArray(domainField) ? domainField[0] : domainField;
+  const relActorField =
+    getField<string | string[]>(record, "REL Actor") ??
+    getField<string | string[]>(record, "(REL) Actor") ??
+    getField<string | string[]>(record, "REL_Actor") ??
+    undefined;
+  const relActors = Array.isArray(relActorField)
+    ? relActorField.filter(Boolean)
+    : relActorField
+      ? [relActorField]
+      : [];
   
   // Debug logging in development
   if (process.env.NODE_ENV === 'development' && !domainId && record.id) {
@@ -165,8 +192,16 @@ function mapActionToContentItem(record: any): DomainContentItem {
     id: record.id,
     type: signalType?.toLowerCase().includes('news') || signalType?.toLowerCase().includes('article') ? 'news' : 'insight',
     title: headline,
-    description: getField(record, 'Description') ?? undefined,
-    url: getField(record, 'URL') ?? getField(record, 'Url') ?? getField(record, 'Link') ?? undefined,
+    description:
+      toTextValue(getField(record, "Feedly/Leo Summary")) ??
+      toTextValue(getField(record, "Description")) ??
+      undefined,
+    url:
+      toTextValue(getField(record, "Source Link")) ??
+      toTextValue(getField(record, "URL")) ??
+      toTextValue(getField(record, "Url")) ??
+      toTextValue(getField(record, "Link")) ??
+      undefined,
     date: getField(record, 'Date') ?? getField(record, 'Created Time') ?? getField(record, 'Created') ?? undefined,
     source: getField(record, 'Source') ?? undefined,
     signalType: signalType,
@@ -175,6 +210,7 @@ function mapActionToContentItem(record: any): DomainContentItem {
       keywords: getField(record, 'Keywords') ?? undefined,
       iconAi: getField(record, 'Icon AI') ?? getField(record, 'IconAI') ?? undefined,
       domainId: domainId,
+      actors: relActors,
     },
   };
 }
@@ -201,7 +237,47 @@ export async function getActorActions(actorId: string): Promise<DomainContentIte
     const visibleActionRecords = actionRecords.filter((record) =>
       isVisibleActionStatus(getField<string>(record, "Status") ?? "Auto")
     );
-    return visibleActionRecords.map(mapActionToContentItem);
+    const actorIds = Array.from(
+      new Set(
+        visibleActionRecords.flatMap((record) => {
+          const relActorField =
+            getField<string | string[]>(record, "REL Actor") ??
+            getField<string | string[]>(record, "(REL) Actor") ??
+            getField<string | string[]>(record, "REL_Actor") ??
+            [];
+          const values = Array.isArray(relActorField)
+            ? relActorField
+            : relActorField
+              ? [relActorField]
+              : [];
+          return values.filter(
+            (value): value is string => typeof value === "string" && isLikelyAirtableRecordId(value)
+          );
+        })
+      )
+    );
+
+    let actorNameById: Record<string, string> = {};
+    if (actorIds.length > 0) {
+      const actorRecords = await fetchRecordsByIds(ACTORS_TABLE, actorIds);
+      actorNameById = Object.fromEntries(
+        actorRecords.map((record) => [record.id, getField<string>(record, "Name") ?? record.id])
+      );
+    }
+
+    return visibleActionRecords.map((record) => {
+      const item = mapActionToContentItem(record);
+      const actors = Array.isArray(item.metadata?.actors)
+        ? (item.metadata.actors as string[]).map((actor) => actorNameById[actor] ?? actor)
+        : [];
+      return {
+        ...item,
+        metadata: {
+          ...(item.metadata ?? {}),
+          actors,
+        },
+      };
+    });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('Failed to fetch actor actions:', error);

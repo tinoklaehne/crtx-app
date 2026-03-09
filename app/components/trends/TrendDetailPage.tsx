@@ -16,6 +16,10 @@ import {
 import { TRLTooltip } from "@/app/components/ui/trl-tooltip";
 import { BRLTooltip } from "@/app/components/ui/brl-tooltip";
 import { TrendHorizonTooltip } from "@/app/components/ui/trend-horizon-tooltip";
+import {
+  SignalActionModal,
+  type SignalActionModalData,
+} from "@/app/components/signals/SignalActionModal";
 import type { Trend } from "@/app/types/trends";
 import type { Cluster } from "@/app/types/clusters";
 
@@ -39,6 +43,8 @@ export function TrendDetailPage({
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [localSignals, setLocalSignals] = useState(signals);
   const [pendingStatusById, setPendingStatusById] = useState<Record<string, boolean>>({});
+  const [selectedSignal, setSelectedSignal] = useState<SignalActionModalData | null>(null);
+  const [isSignalModalOpen, setIsSignalModalOpen] = useState(false);
 
   useEffect(() => {
     setLocalSignals(signals);
@@ -434,7 +440,16 @@ export function TrendDetailPage({
                       key={signal.id}
                       className="flex cursor-pointer items-start gap-4 rounded-lg p-3 transition-colors hover:bg-secondary/50"
                       onClick={() => {
-                        if (signal.url) window.open(signal.url, "_blank", "noopener,noreferrer");
+                        setSelectedSignal({
+                          title: signal.headline,
+                          summary: undefined,
+                          date: signal.date,
+                          source: undefined,
+                          signalType: undefined,
+                          area: trend.domain,
+                          url: signal.url,
+                        });
+                        setIsSignalModalOpen(true);
                       }}
                     >
                       {signal.date && (
@@ -482,6 +497,11 @@ export function TrendDetailPage({
           </div>
         </div>
       </ScrollArea>
+      <SignalActionModal
+        signal={selectedSignal}
+        isOpen={isSignalModalOpen}
+        onClose={() => setIsSignalModalOpen(false)}
+      />
     </div>
   );
 }

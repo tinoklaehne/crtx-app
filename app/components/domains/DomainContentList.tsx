@@ -23,6 +23,10 @@ import {
 import { CircleOff, ExternalLink, SlidersHorizontal, Trash2 } from "lucide-react";
 import { DropdownFilter, type FilterCategory } from "@/components/ui/dropdown-filter";
 import {
+  SignalActionModal,
+  type SignalActionModalData,
+} from "@/app/components/signals/SignalActionModal";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -48,6 +52,8 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(initialItemsPerPage);
+  const [selectedSignal, setSelectedSignal] = useState<SignalActionModalData | null>(null);
+  const [isSignalModalOpen, setIsSignalModalOpen] = useState(false);
 
   useEffect(() => {
     setLocalItems(items);
@@ -303,15 +309,20 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
         ) : (
           paginatedItems.map((item, index) => {
             const handleClick = (e: React.MouseEvent) => {
-              if (item.url) {
-                e.preventDefault();
-                // Ensure URL has protocol
-                let url = item.url;
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                  url = 'https://' + url;
-                }
-                window.open(url, '_blank', 'noopener,noreferrer');
-              }
+              e.preventDefault();
+              setSelectedSignal({
+                title: item.title,
+                summary: item.description,
+                date: item.date,
+                source: item.source,
+                signalType: item.signalType,
+                area: item.metadata?.domainId ? domainNames[item.metadata.domainId] : undefined,
+                actors: Array.isArray(item.metadata?.actors)
+                  ? (item.metadata.actors as string[])
+                  : undefined,
+                url: item.url,
+              });
+              setIsSignalModalOpen(true);
             };
 
             return (
@@ -445,6 +456,11 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
           </Pagination>
         </div>
       )}
+      <SignalActionModal
+        signal={selectedSignal}
+        isOpen={isSignalModalOpen}
+        onClose={() => setIsSignalModalOpen(false)}
+      />
     </div>
   );
 }
