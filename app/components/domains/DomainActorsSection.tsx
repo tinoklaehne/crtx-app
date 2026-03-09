@@ -108,17 +108,6 @@ export function DomainActorsSection({ data }: DomainActorsSectionProps) {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const hasAny = data.actors.length > 0;
 
-  if (!hasAny) {
-    return (
-      <div className="border rounded-lg bg-card p-6 mt-8">
-        <h2 className="text-2xl font-bold mb-2">Active Actors</h2>
-        <p className="text-sm text-muted-foreground">
-          No actor activity found in visible signals for this domain yet.
-        </p>
-      </div>
-    );
-  }
-
   const tabItems = activeTab === "actors" ? data.actors : data.startups;
 
   const filterCategories = useMemo<FilterCategory[]>(() => {
@@ -212,6 +201,17 @@ export function DomainActorsSection({ data }: DomainActorsSectionProps) {
   const filteredStartups = activeTab === "startups" ? filteredTabItems : [];
   const newStartups = filteredStartups.filter((actor) => actor.isNewStartup);
   const pagedAllStartups = filteredStartups.slice(startIndex, endIndex);
+
+  if (!hasAny) {
+    return (
+      <div className="border rounded-lg bg-card p-6 mt-8">
+        <h2 className="text-2xl font-bold mb-2">Active Actors</h2>
+        <p className="text-sm text-muted-foreground">
+          No actor activity found in visible signals for this domain yet.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="border rounded-lg bg-card p-4 mt-8">
