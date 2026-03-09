@@ -6,11 +6,16 @@ import type { BusinessDomain, DomainWithMomentum, MomentumDataPoint } from '@/ap
 import type { DomainTabContent, DomainContentItem } from '@/app/types/domainContent';
 import type { Trend } from '@/app/types/trends';
 import type { Domain } from '@/app/types/domains';
+import type { Chart } from '@/app/types/charts';
+import type { Analysis } from '@/app/types/analyses';
+import type { AirtableAttachment } from '@/app/types/airtable';
 
 // Table names
 const TAXONOMY_TABLE = 'tbld5CXEcljomMMQB';
 const ACTIONS_TABLE = 'tblA0KRyRnM763cXy'; // Actions table (same as Signals/News)
 const TRENDS_TABLE = 'tblZ683rmMtm6BkyL'; // Trends table
+const CHARTS_TABLE = 'tblwTkOHsRShGxXIV'; // Charts table
+const ANALYSES_TABLE = 'tblsRiqbpoiaBCuVU'; // Analyses table
 
 // Helper function to safely get numeric field
 function getNumericField(record: any, fieldName: string): number | undefined {
@@ -244,6 +249,44 @@ async function fetchLinkedRecords(tableName: string, recordIds: string[]): Promi
     });
     return [];
   }
+}
+
+function getAttachmentUrl(
+  record: any,
+  fieldName: string
+): string | undefined {
+  const val = getField<AirtableAttachment[] | string>(record, fieldName);
+  if (typeof val === 'string' && val.startsWith('http')) return val;
+  if (Array.isArray(val) && val.length > 0) {
+    const first = val[0] as AirtableAttachment | null;
+    if (first?.url) return first.url;
+  }
+  if (
+    val &&
+    typeof val === 'object' &&
+    'url' in val &&
+    typeof (val as { url: string }).url === 'string'
+  ) {
+    return (val as { url: string }).url;
+  }
+  return undefined;
+}
+
+function getTextValue(
+  record: any,
+  fieldName: string
+): string | undefined {
+  const val = getField<unknown>(record, fieldName);
+  if (val == null) return undefined;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'number' || typeof val === 'boolean') return String(val);
+  if (typeof val === 'object' && 'value' in val) {
+    const inner = (val as { value?: unknown }).value;
+    if (inner == null) return undefined;
+    if (typeof inner === 'string') return inner;
+    if (typeof inner === 'number' || typeof inner === 'boolean') return String(inner);
+  }
+  return undefined;
 }
 
 // Helper function to map Action/Signal/News records to DomainContentItem
@@ -488,5 +531,111 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
       console.error('Airtable error details:', error.error);
     }
     return { trends: [], parentClusterIds: [] };
+  }
+}
+
+export async function getDomainCharts(domainId: string): Promise<Chart[]> {
+  try {
+    const base = getBase();
+    const domainRecord = await fetchWithRetry(() => base(TAXONOMY_TABLE).find(domainId));
+    if (!domainRecord) return [];
+
+    let chartsField = getField<string[]>(domainRecord, 'Charts/Charts') ?? [];
+    if (!chartsField || chartsField.length === 0) {
+      chartsField = getField<string[]>(domainRecord, 'Charts') ?? [];
+    }
+    if (!chartsField || !Array.isArray(chartsField) || chartsField.length === 0) {
+      return [];
+    }
+
+    const chartRecords = await fetchLinkedRecords(CHARTS_TABLE, chartsField);
+    if (chartRecords.length === 0) return [];
+
+    const charts = chartRecords.map((record) => {
+      const created = getField<string | Date>(record, 'Created')
+        ?? getField<string | Date>(record, 'Created Time')
+        ?? undefined;
+      const createdAt =
+        created instanceof Date
+          ? created.toISOString()
+          : typeof created === 'string'
+            ? created
+            : undefined;
+
+      return {
+        id: record.id,
+        title: getTextValue(record, 'Name') ?? '',
+        imageUrl: getAttachmentUrl(record, 'Chart'),
+        sourceUrl: getTextValue(record, 'Source') ?? undefined,
+        aiSummary: getTextValue(record, 'Chart Summarizer') ?? undefined,
+        createdAt,
+        domainIds: (getField<string[]>(record, 'REL area') ?? []).filter(Boolean),
+        textArea: getTextValue(record, 'Txt Area') ?? undefined,
+      } satisfies Chart;
+    });
+
+    charts.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    return charts;
+  } catch (error: any) {
+    console.error('Error fetching domain charts:', error);
+    if (error?.error) {
+      console.error('Airtable error details:', error.error);
+    }
+    return [];
+  }
+}
+
+export async function getDomainAnalyses(domainId: string): Promise<Analysis[]> {
+  try {
+    const base = getBase();
+    const domainRecord = await fetchWithRetry(() => base(TAXONOMY_TABLE).find(domainId));
+    if (!domainRecord) return [];
+
+    const analysesField = getField<string[]>(domainRecord, 'REL Analyses') ?? [];
+    if (!Array.isArray(analysesField) || analysesField.length === 0) {
+      return [];
+    }
+
+    const analysisRecords = await fetchLinkedRecords(ANALYSES_TABLE, analysesField);
+    if (analysisRecords.length === 0) return [];
+
+    const analyses = analysisRecords.map((record) => {
+      const lastModifiedRaw = getField<string | Date>(record, 'Last Modified') ?? undefined;
+      const lastModified =
+        lastModifiedRaw instanceof Date
+          ? lastModifiedRaw.toISOString()
+          : typeof lastModifiedRaw === 'string'
+            ? lastModifiedRaw
+            : undefined;
+
+      return {
+        id: record.id,
+        title:
+          getTextValue(record, 'Analysis Name')
+          ?? getTextValue(record, 'Analyst Name')
+          ?? getTextValue(record, 'Name')
+          ?? '',
+        shortDescription: getTextValue(record, 'Short Description') ?? undefined,
+        sourceUrl:
+          getTextValue(record, 'Webcode')
+          ?? getTextValue(record, 'Website')
+          ?? getTextValue(record, 'Source')
+          ?? undefined,
+        lastModified,
+        domainIds:
+          (getField<string[]>(record, 'REL Sub-area')
+            ?? getField<string[]>(record, 'REL Sub-Area')
+            ?? []).filter(Boolean),
+      } satisfies Analysis;
+    });
+
+    analyses.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    return analyses;
+  } catch (error: any) {
+    console.error('Error fetching domain analyses:', error);
+    if (error?.error) {
+      console.error('Airtable error details:', error.error);
+    }
+    return [];
   }
 }

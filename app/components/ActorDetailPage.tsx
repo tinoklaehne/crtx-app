@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Info, Database, DollarSign, FileText, Sparkles, Leaf } from "lucide-react";
 import type { Actor } from "@/app/types/actors";
 import type { DomainContentItem } from "@/app/types/domainContent";
 import { MarkdownContent } from "@/app/components/ui/markdown-content";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DomainContentList } from "@/app/components/domains/DomainContentList";
 import { ActorDashboard } from "@/app/components/actors/ActorDashboard";
+import { Switch } from "@/components/ui/switch";
 
 type ActorTab = "general" | "esg" | "financial" | "social" | "patent" | "datasets";
 
@@ -26,6 +26,56 @@ function formatList(value: string | string[] | undefined): string {
 
 export function ActorDetailPage({ actor, actions = [], domainNames = {} }: ActorDetailPageProps) {
   const [activeTab, setActiveTab] = useState<ActorTab>("general");
+  const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
+  const [subscribing, setSubscribing] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSubscribedActors() {
+      try {
+        const res = await fetch("/api/user/subscribed-actors");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const actorIds: string[] = data.actorIds ?? [];
+          setIsSubscribed(actorIds.includes(actor.id));
+        }
+      } catch (error) {
+        console.error("Failed to load subscribed actors", error);
+      }
+    }
+    loadSubscribedActors();
+    return () => {
+      cancelled = true;
+    };
+  }, [actor.id]);
+
+  async function handleSubscriptionToggle(checked: boolean) {
+    if (subscribing) return;
+    setSubscribing(true);
+    const previous = isSubscribed;
+    setIsSubscribed(checked);
+    try {
+      const res = await fetch("/api/user/subscribe-actor", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ actorId: actor.id, subscribe: checked }),
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update actor subscription");
+      }
+      const data = await res.json();
+      const actorIds: string[] = data.actorIds ?? [];
+      setIsSubscribed(actorIds.includes(actor.id));
+    } catch (error) {
+      console.error(error);
+      setIsSubscribed(previous ?? false);
+    } finally {
+      setSubscribing(false);
+    }
+  }
 
   return (
     <div className="flex-1 overflow-auto p-6">
@@ -35,17 +85,28 @@ export function ActorDetailPage({ actor, actions = [], domainNames = {} }: Actor
           <div className="sticky top-[-24px] z-50 bg-background pb-6 -mx-6 px-6 pt-[48px] border-b border-border/40 mb-8 shadow-sm">
             {/* Actor Header */}
             <div className="mb-6">
-              <div className="flex items-center gap-4">
-                {actor.logo && (
-                  <Image
-                    src={actor.logo}
-                    alt={actor.name}
-                    width={48}
-                    height={48}
-                    className="w-12 h-12 object-contain flex-shrink-0"
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-4">
+                  {actor.logo && (
+                    <Image
+                      src={actor.logo}
+                      alt={actor.name}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 object-contain flex-shrink-0"
+                    />
+                  )}
+                  <h1 className="text-2xl font-semibold">{actor.name}</h1>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-medium text-muted-foreground">My Actors</span>
+                  <Switch
+                    checked={!!isSubscribed}
+                    disabled={isSubscribed === null || subscribing}
+                    onCheckedChange={handleSubscriptionToggle}
+                    aria-label="Subscribe to actor"
                   />
-                )}
-                <h1 className="text-2xl font-semibold">{actor.name}</h1>
+                </div>
               </div>
             </div>
 

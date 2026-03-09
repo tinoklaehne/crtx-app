@@ -25,5 +25,7 @@ export interface User {
   subscribedReportIds: string[];
   /** Linked record IDs of bookmarked trends from \"My_Trends\" column */
   subscribedTrendIds: string[];
+  /** Linked record IDs of subscribed actors from \"My_Actors\" column */
+  subscribedActorIds: string[];
 }
 

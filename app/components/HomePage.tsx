@@ -10,6 +10,7 @@ import { DomainContentList } from "@/app/components/domains/DomainContentList";
 import type { DomainContentItem } from "@/app/types/domainContent";
 import type { Report } from "@/app/types/reports";
 import type { Trend } from "@/app/types/trends";
+import type { Actor } from "@/app/types/actors";
 
 // Helper to safely convert Airtable values to strings (handles specialValue objects)
 function safeString(value: unknown): string {
@@ -24,19 +25,22 @@ function safeString(value: unknown): string {
 
 export function HomePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"my-domains" | "my-reports" | "my-trends">(
+  const [activeTab, setActiveTab] = useState<"my-domains" | "my-reports" | "my-trends" | "my-actors">(
     "my-domains"
   );
   const [items, setItems] = useState<DomainContentItem[]>([]);
   const [domainNames, setDomainNames] = useState<Record<string, string>>({});
   const [reports, setReports] = useState<Report[]>([]);
   const [trends, setTrends] = useState<Trend[]>([]);
+  const [actors, setActors] = useState<Actor[]>([]);
   const [loading, setLoading] = useState(false);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [trendsLoading, setTrendsLoading] = useState(false);
+  const [actorsLoading, setActorsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [trendsError, setTrendsError] = useState<string | null>(null);
+  const [actorsError, setActorsError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,6 +100,55 @@ export function HomePage() {
       }
     }
     loadMyDomainSignals();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMyActors() {
+      try {
+        setActorsLoading(true);
+        setActorsError(null);
+        const res = await fetch("/api/user/my-actors");
+        const contentType = res.headers.get("content-type") ?? "";
+        let data: { actors?: Actor[]; error?: string } | null = null;
+        if (contentType.includes("application/json")) {
+          try {
+            data = await res.json();
+          } catch (jsonError) {
+            console.warn("Could not parse /api/user/my-actors JSON response", jsonError);
+          }
+        }
+        if (!res.ok) {
+          if (!cancelled) {
+            setActors([]);
+            setActorsError(
+              data?.error || `Could not load My Actors (status ${res.status}).`
+            );
+          }
+        } else if (data) {
+          if (!cancelled) {
+            setActors(data.actors ?? []);
+            if (data.error) {
+              setActorsError("Some data may be incomplete. Airtable connection may be unavailable.");
+            }
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) {
+          setActors([]);
+          setActorsError("Could not load My Actors. Please check your Airtable connection.");
+        }
+      } finally {
+        if (!cancelled) {
+          setActorsLoading(false);
+        }
+      }
+    }
+    loadMyActors();
     return () => {
       cancelled = true;
     };
@@ -216,7 +269,7 @@ export function HomePage() {
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as "my-domains" | "my-reports" | "my-trends")
+                setActiveTab(value as "my-domains" | "my-reports" | "my-trends" | "my-actors")
               }
               className="w-full"
             >
@@ -224,6 +277,7 @@ export function HomePage() {
                 <TabsTrigger value="my-domains">My Domains</TabsTrigger>
                 <TabsTrigger value="my-reports">My Reports</TabsTrigger>
                 <TabsTrigger value="my-trends">My Trends</TabsTrigger>
+                <TabsTrigger value="my-actors">My Actors</TabsTrigger>
               </TabsList>
 
               <TabsContent value="my-domains" className="m-0">
@@ -360,6 +414,62 @@ export function HomePage() {
                               </Badge>
                             )}
                           </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="my-actors" className="m-0">
+                {actorsLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading your subscribed actors...
+                  </p>
+                ) : actorsError ? (
+                  <p className="text-sm text-destructive">{actorsError}</p>
+                ) : actors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    You have no subscribed actors yet. Subscribe to actors in the Directory to see them here.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {actors.map((actor) => (
+                      <div
+                        key={actor.id}
+                        onClick={() => router.push(`/directory/${actor.id}`)}
+                        className="bg-card border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          {actor.logo ? (
+                            <Image
+                              src={actor.logo}
+                              alt={actor.name}
+                              width={48}
+                              height={48}
+                              className="w-12 h-12 object-contain flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                              <span className="text-lg text-muted-foreground">
+                                {actor.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-sm mb-1 line-clamp-2">{actor.name}</h3>
+                            {actor.typeMain && (
+                              <p className="text-xs text-muted-foreground">{actor.typeMain}</p>
+                            )}
+                            {actor.geography && (
+                              <p className="text-xs text-muted-foreground mt-1">{actor.geography}</p>
+                            )}
+                          </div>
+                        </div>
+                        {actor.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-3 mt-2">
+                            {actor.description}
+                          </p>
                         )}
                       </div>
                     ))}

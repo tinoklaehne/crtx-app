@@ -32,6 +32,8 @@ import type { DomainStrategyData } from "@/app/types/strategy";
 import type { Trend } from "@/app/types/trends";
 import type { Cluster } from "@/app/types/clusters";
 import type { Report } from "@/app/types/reports";
+import type { Chart } from "@/app/types/charts";
+import type { Analysis } from "@/app/types/analyses";
 
 interface DomainDetailPageProps {
   domain: BusinessDomain;
@@ -43,6 +45,10 @@ interface DomainDetailPageProps {
   arenaNames?: Record<string, string>;
   /** Reports linked to this domain */
   reports?: Report[];
+  /** Charts linked to this domain */
+  charts?: Chart[];
+  /** Analyses linked to this domain */
+  analyses?: Analysis[];
   /** Strategy data (themes, questions, problems) for the Strategy tab */
   strategy?: DomainStrategyData;
 }
@@ -53,7 +59,7 @@ function formatKeywords(keywords: BusinessDomain["keywords"]): string {
   return String(keywords).trim();
 }
 
-export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {}, reports = [], strategy = { themes: [], questions: [], problems: [] } }: DomainDetailPageProps) {
+export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {}, reports = [], charts = [], analyses = [], strategy = { themes: [], questions: [], problems: [] } }: DomainDetailPageProps) {
   const [activeTab, setActiveTab] = useState<DomainTab>("now");
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
   const [subscribing, setSubscribing] = useState(false);
@@ -268,7 +274,7 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
 
           {/* Reports Section - only on Now tab */}
           {activeTab === "now" && (
-            <DomainReportsSection reports={reports} domainNames={arenaNames} />
+            <DomainReportsSection reports={reports} charts={charts} analyses={analyses} domainNames={arenaNames} />
           )}
         </div>
       </div>

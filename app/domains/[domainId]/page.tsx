@@ -1,4 +1,4 @@
-import { getDomain, getDomainContent, getDomainIds, getDomainTrends, getAllDomains } from "@/lib/airtable/domains";
+import { getDomain, getDomainContent, getDomainIds, getDomainTrends, getAllDomains, getDomainCharts, getDomainAnalyses } from "@/lib/airtable/domains";
 import { getReportsByDomain } from "@/lib/airtable/reports";
 import { getDomainStrategy } from "@/lib/airtable/strategy";
 import { DomainDetailPage } from "@/app/components/DomainDetailPage";
@@ -77,7 +77,7 @@ export default async function DomainDetailRoute({
   const { domainId } = await params;
 
   // Fetch domain, content, trends data, all domains, reports, and strategy in parallel
-  const [domain, content, trendsData, allDomains, reports, strategy] = await Promise.all([
+  const [domain, content, trendsData, allDomains, reports, strategy, charts, analyses] = await Promise.all([
     getDomain(domainId).catch(err => {
       console.error("Failed to fetch domain:", err);
       return null;
@@ -105,6 +105,14 @@ export default async function DomainDetailRoute({
     getDomainStrategy(domainId).catch(err => {
       console.error("Failed to fetch domain strategy:", err);
       return { themes: [], questions: [], problems: [] };
+    }),
+    getDomainCharts(domainId).catch(err => {
+      console.error("Failed to fetch domain charts:", err);
+      return [];
+    }),
+    getDomainAnalyses(domainId).catch(err => {
+      console.error("Failed to fetch domain analyses:", err);
+      return [];
     }),
   ]);
   
@@ -135,5 +143,5 @@ export default async function DomainDetailRoute({
   const arenaNames = Object.fromEntries(
     (allDomains || []).map((d) => [d.id, d.name ?? ""])
   );
-  return <DomainDetailPage domain={domain} content={content} trends={trends} clusters={clusters} allDomains={subAreaDomains} arenaNames={arenaNames} reports={reports} strategy={strategy} />;
+  return <DomainDetailPage domain={domain} content={content} trends={trends} clusters={clusters} allDomains={subAreaDomains} arenaNames={arenaNames} reports={reports} charts={charts} analyses={analyses} strategy={strategy} />;
 }

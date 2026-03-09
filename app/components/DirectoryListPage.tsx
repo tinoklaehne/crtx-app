@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Suspense } from "react";
+import { useState, useMemo, Suspense, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/app/components/layout/Navbar";
@@ -70,6 +70,29 @@ export function DirectoryListPage({
   const [sortKey, setSortKey] = useState<SortKey>("signals");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [page, setPage] = useState(1);
+  const [subscribedActorIds, setSubscribedActorIds] = useState<string[]>([]);
+  const [showSubscribedOnly, setShowSubscribedOnly] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSubscribedActors() {
+      try {
+        const res = await fetch("/api/user/subscribed-actors");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          const actorIds: string[] = data.actorIds ?? [];
+          setSubscribedActorIds(actorIds);
+        }
+      } catch (error) {
+        console.error("Failed to load subscribed actors", error);
+      }
+    }
+    loadSubscribedActors();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Build filter categories
   const filterCategories = useMemo<FilterCategory[]>(() => {
@@ -165,8 +188,13 @@ export function DirectoryListPage({
       );
     }
 
+    if (showSubscribedOnly) {
+      const subscribedSet = new Set(subscribedActorIds);
+      filtered = filtered.filter((actor) => subscribedSet.has(actor.id));
+    }
+
     return filtered;
-  }, [actors, searchQuery, selectedFilters]);
+  }, [actors, searchQuery, selectedFilters, showSubscribedOnly, subscribedActorIds]);
 
   // Sort actors
   const sortedActors = useMemo(() => {
@@ -238,7 +266,16 @@ export function DirectoryListPage({
     <div className="flex h-screen bg-background text-foreground">
       <Navbar />
       <Suspense fallback={<div className="w-64 border-r bg-card" />}>
-        <ActorsSidepanel actors={actors} actorlistNames={actorlistNames} />
+        <ActorsSidepanel
+          actors={actors}
+          actorlistNames={actorlistNames}
+          showSubscribedOnly={showSubscribedOnly}
+          onShowSubscribedOnlyChange={(checked) => {
+            setShowSubscribedOnly(checked);
+            setPage(1);
+          }}
+          subscribedActorIds={subscribedActorIds}
+        />
       </Suspense>
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-7xl mx-auto">

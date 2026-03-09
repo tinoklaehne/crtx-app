@@ -12,6 +12,8 @@ function mapRecordToUser(record: any): User {
     (getField<string[]>(record, "My_Reports") ?? []).filter(Boolean);
   const subscribedTrendIds =
     (getField<string[]>(record, "My_Trends") ?? []).filter(Boolean);
+  const subscribedActorIds =
+    (getField<string[]>(record, "My_Actors") ?? []).filter(Boolean);
   const lastLogin =
     (getField<string | Date>(record, "Last Login") as string | Date | undefined) ??
     undefined;
@@ -37,6 +39,7 @@ function mapRecordToUser(record: any): User {
     subscribedDomainIds,
     subscribedReportIds,
     subscribedTrendIds,
+    subscribedActorIds,
   };
 }
 
@@ -301,5 +304,50 @@ export async function unbookmarkTrend(
   if (!current.includes(trendId)) return current;
   const next = current.filter((id) => id !== trendId);
   return updateUserTrendBookmarks(userId, next);
+}
+
+export async function getSubscribedActors(userId: string): Promise<string[]> {
+  const user = await getUser(userId);
+  return user?.subscribedActorIds ?? [];
+}
+
+async function updateUserActorSubscriptions(
+  userId: string,
+  subscribedActorIds: string[]
+): Promise<string[]> {
+  try {
+    const base = getBase();
+    const table = base(USERS_TABLE) as { update: (records: { id: string; fields: Record<string, unknown> }[]) => Promise<unknown> };
+    const result = await fetchWithRetry(() =>
+      table.update([{ id: userId, fields: { My_Actors: subscribedActorIds } }])
+    );
+    const updated = Array.isArray(result) ? result[0] : result;
+    if (!updated) return [];
+    const user = mapRecordToUser(updated as any);
+    return user.subscribedActorIds;
+  } catch (error) {
+    console.error("Error updating user actor subscriptions:", error);
+    return [];
+  }
+}
+
+export async function subscribeToActor(
+  userId: string,
+  actorId: string
+): Promise<string[]> {
+  const current = await getSubscribedActors(userId);
+  if (current.includes(actorId)) return current;
+  const next = [...current, actorId];
+  return updateUserActorSubscriptions(userId, next);
+}
+
+export async function unsubscribeFromActor(
+  userId: string,
+  actorId: string
+): Promise<string[]> {
+  const current = await getSubscribedActors(userId);
+  if (!current.includes(actorId)) return current;
+  const next = current.filter((id) => id !== actorId);
+  return updateUserActorSubscriptions(userId, next);
 }
 
