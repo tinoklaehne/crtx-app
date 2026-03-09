@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DomainDashboard } from "./domains/DomainDashboard";
 import { DomainContentList } from "./domains/DomainContentList";
+import { DomainActorsSection } from "./domains/DomainActorsSection";
 import { DomainTrendsView } from "./domains/DomainTrendsView";
 import { DomainReportsSection } from "./domains/DomainReportsSection";
 import { DomainStrategyView } from "./domains/DomainStrategyView";
@@ -34,6 +35,7 @@ import type { Cluster } from "@/app/types/clusters";
 import type { Report } from "@/app/types/reports";
 import type { Chart } from "@/app/types/charts";
 import type { Analysis } from "@/app/types/analyses";
+import type { DomainActorInsightsData } from "@/app/types/domainActors";
 
 interface DomainDetailPageProps {
   domain: BusinessDomain;
@@ -51,6 +53,8 @@ interface DomainDetailPageProps {
   analyses?: Analysis[];
   /** Strategy data (themes, questions, problems) for the Strategy tab */
   strategy?: DomainStrategyData;
+  /** Actor activity insights derived from visible signals */
+  actorInsights?: DomainActorInsightsData;
 }
 
 function formatKeywords(keywords: BusinessDomain["keywords"]): string {
@@ -59,7 +63,7 @@ function formatKeywords(keywords: BusinessDomain["keywords"]): string {
   return String(keywords).trim();
 }
 
-export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {}, reports = [], charts = [], analyses = [], strategy = { themes: [], questions: [], problems: [] } }: DomainDetailPageProps) {
+export function DomainDetailPage({ domain, content, trends = [], clusters = [], allDomains = [], arenaNames = {}, reports = [], charts = [], analyses = [], strategy = { themes: [], questions: [], problems: [] }, actorInsights = { actors: [], startups: [], newStartups: [] } }: DomainDetailPageProps) {
   const [activeTab, setActiveTab] = useState<DomainTab>("now");
   const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
   const [subscribing, setSubscribing] = useState(false);
@@ -254,6 +258,11 @@ export function DomainDetailPage({ domain, content, trends = [], clusters = [], 
           {/* Content based on active tab */}
           {activeTab === "now" && (
             <DomainContentList items={getActiveTabItems()} />
+          )}
+
+          {/* Actors Section - only on Now tab, between signals and reports/charts/analyses */}
+          {activeTab === "now" && (
+            <DomainActorsSection data={actorInsights} />
           )}
           
           {activeTab === "new" && trends.length > 0 && (

@@ -36,6 +36,11 @@ interface TechnologyDetailModalProps {
     date?: string;
     url?: string;
     status?: string;
+    signalType?: string;
+    source?: string;
+    summary?: string;
+    actorIds?: string[];
+    actors?: string[];
   }>;
 }
 
@@ -484,12 +489,15 @@ export function TechnologyDetailModal({
                         className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
                         onClick={() => {
                           setSelectedSignal({
+                            id: signal.id,
                             title: signal.headline,
-                            summary: undefined,
+                            summary: signal.summary,
                             date: signal.date,
-                            source: undefined,
-                            signalType: undefined,
+                            source: signal.source,
+                            signalType: signal.signalType,
                             area: technology.domain,
+                            actorIds: signal.actorIds,
+                            actors: signal.actors,
                             url: signal.url,
                           });
                           setIsSignalModalOpen(true);
@@ -546,6 +554,19 @@ export function TechnologyDetailModal({
           signal={selectedSignal}
           isOpen={isSignalModalOpen}
           onClose={() => setIsSignalModalOpen(false)}
+          onSaved={({ signalType, actorIds, actorNames }) => {
+            if (!selectedSignal) return;
+            setSelectedSignal((prev) =>
+              prev ? { ...prev, signalType, actorIds, actors: actorNames } : prev
+            );
+            setLocalSignals((prev) =>
+              prev.map((item) =>
+                item.id === selectedSignal.id
+                  ? { ...item, signalType, actorIds, actors: actorNames }
+                  : item
+              )
+            );
+          }}
         />
       </DialogContent>
     </Dialog>

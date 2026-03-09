@@ -210,6 +210,7 @@ function mapActionToContentItem(record: any): DomainContentItem {
       keywords: getField(record, 'Keywords') ?? undefined,
       iconAi: getField(record, 'Icon AI') ?? getField(record, 'IconAI') ?? undefined,
       domainId: domainId,
+      actorIds: relActors,
       actors: relActors,
     },
   };

@@ -311,12 +311,16 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
             const handleClick = (e: React.MouseEvent) => {
               e.preventDefault();
               setSelectedSignal({
+                id: item.id,
                 title: item.title,
                 summary: item.description,
                 date: item.date,
                 source: item.source,
                 signalType: item.signalType,
                 area: item.metadata?.domainId ? domainNames[item.metadata.domainId] : undefined,
+                actorIds: Array.isArray(item.metadata?.actorIds)
+                  ? (item.metadata.actorIds as string[])
+                  : undefined,
                 actors: Array.isArray(item.metadata?.actors)
                   ? (item.metadata.actors as string[])
                   : undefined,
@@ -460,6 +464,29 @@ export function DomainContentList({ items, itemsPerPage: initialItemsPerPage = 1
         signal={selectedSignal}
         isOpen={isSignalModalOpen}
         onClose={() => setIsSignalModalOpen(false)}
+        onSaved={({ signalType, actorIds, actorNames }) => {
+          if (!selectedSignal) return;
+          setSelectedSignal((prev) =>
+            prev
+              ? { ...prev, signalType, actorIds, actors: actorNames }
+              : prev
+          );
+          setLocalItems((prev) =>
+            prev.map((item) =>
+              item.id === selectedSignal.id
+                ? {
+                    ...item,
+                    signalType,
+                    metadata: {
+                      ...(item.metadata ?? {}),
+                      actorIds,
+                      actors: actorNames,
+                    },
+                  }
+                : item
+            )
+          );
+        }}
       />
     </div>
   );

@@ -26,7 +26,18 @@ import type { Cluster } from "@/app/types/clusters";
 interface TrendDetailPageProps {
   trend: Trend;
   cluster?: Cluster | null;
-  signals?: Array<{ id: string; headline: string; date?: string; url?: string; status?: string }>;
+  signals?: Array<{
+    id: string;
+    headline: string;
+    date?: string;
+    url?: string;
+    status?: string;
+    signalType?: string;
+    source?: string;
+    summary?: string;
+    actorIds?: string[];
+    actors?: string[];
+  }>;
 }
 
 export function TrendDetailPage({
@@ -441,12 +452,15 @@ export function TrendDetailPage({
                       className="flex cursor-pointer items-start gap-4 rounded-lg p-3 transition-colors hover:bg-secondary/50"
                       onClick={() => {
                         setSelectedSignal({
+                          id: signal.id,
                           title: signal.headline,
-                          summary: undefined,
+                          summary: signal.summary,
                           date: signal.date,
-                          source: undefined,
-                          signalType: undefined,
+                          source: signal.source,
+                          signalType: signal.signalType,
                           area: trend.domain,
+                          actorIds: signal.actorIds,
+                          actors: signal.actors,
                           url: signal.url,
                         });
                         setIsSignalModalOpen(true);
@@ -501,6 +515,19 @@ export function TrendDetailPage({
         signal={selectedSignal}
         isOpen={isSignalModalOpen}
         onClose={() => setIsSignalModalOpen(false)}
+        onSaved={({ signalType, actorIds, actorNames }) => {
+          if (!selectedSignal) return;
+          setSelectedSignal((prev) =>
+            prev ? { ...prev, signalType, actorIds, actors: actorNames } : prev
+          );
+          setLocalSignals((prev) =>
+            prev.map((item) =>
+              item.id === selectedSignal.id
+                ? { ...item, signalType, actorIds, actors: actorNames }
+                : item
+            )
+          );
+        }}
       />
     </div>
   );

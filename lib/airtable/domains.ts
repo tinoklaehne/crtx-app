@@ -8,6 +8,7 @@ import type { Trend } from '@/app/types/trends';
 import type { Domain } from '@/app/types/domains';
 import type { Chart } from '@/app/types/charts';
 import type { Analysis } from '@/app/types/analyses';
+import type { DomainActorInsight, DomainActorInsightsData } from '@/app/types/domainActors';
 import type { AirtableAttachment } from '@/app/types/airtable';
 import { isVisibleActionStatus } from './actions';
 
@@ -357,6 +358,7 @@ function mapActionToContentItem(record: any): DomainContentItem {
     metadata: {
       keywords: getField(record, 'Keywords') || undefined,
       iconAi: getField(record, 'Icon AI') || getField(record, 'IconAI') || undefined,
+      actorIds: relActors,
       actors: relActors,
     },
   };
@@ -364,6 +366,180 @@ function mapActionToContentItem(record: any): DomainContentItem {
 
 function isLikelyAirtableRecordId(value: string): boolean {
   return /^rec[a-zA-Z0-9]{14}$/.test(value);
+}
+
+function normalizeActorType(value: string | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function isStartupActorType(typeMain: string | undefined): boolean {
+  const normalized = normalizeActorType(typeMain);
+  return normalized.includes("startup") || normalized.includes("start-up");
+}
+
+function toStringArray(value: unknown): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => (typeof entry === "string" ? entry.trim() : String(entry ?? "").trim()))
+      .filter((entry) => entry.length > 0);
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+  if (typeof value === "object" && "value" in (value as Record<string, unknown>)) {
+    return toStringArray((value as { value?: unknown }).value);
+  }
+  const asString = String(value).trim();
+  return asString ? [asString] : [];
+}
+
+function getActionDateMs(record: any): number | null {
+  const rawDate =
+    getField<string>(record, "Date") ??
+    getField<string>(record, "Created Time") ??
+    getField<string>(record, "Created") ??
+    null;
+  if (!rawDate) return null;
+  const timestamp = Date.parse(rawDate);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+export async function getDomainActorInsights(
+  domainId: string
+): Promise<DomainActorInsightsData> {
+  try {
+    const base = getBase();
+    const domainRecord = await fetchWithRetry(() => base(TAXONOMY_TABLE).find(domainId));
+
+    const actionsField =
+      getField<string[]>(domainRecord, "(REL) Actions") ??
+      getField<string[]>(domainRecord, "REL_Actions") ??
+      getField<string[]>(domainRecord, "Actions") ??
+      getField<string[]>(domainRecord, "REL Actions") ??
+      [];
+
+    if (!Array.isArray(actionsField) || actionsField.length === 0) {
+      return { actors: [], startups: [], newStartups: [] };
+    }
+
+    const actionRecords = await fetchLinkedRecords(ACTIONS_TABLE, actionsField);
+    const visibleActionRecords = actionRecords.filter((record) =>
+      isVisibleActionStatus(getField<string>(record, "Status") ?? "Auto")
+    );
+
+    if (visibleActionRecords.length === 0) {
+      return { actors: [], startups: [], newStartups: [] };
+    }
+
+    const actorStats = new Map<string, { actionCount: number; firstSeenMs: number | null }>();
+    for (const record of visibleActionRecords) {
+      const relActorField =
+        getField<string | string[]>(record, "REL Actor") ??
+        getField<string | string[]>(record, "(REL) Actor") ??
+        getField<string | string[]>(record, "REL_Actor") ??
+        [];
+      const actorIds = Array.isArray(relActorField)
+        ? relActorField.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        : typeof relActorField === "string" && relActorField.trim().length > 0
+          ? [relActorField]
+          : [];
+      if (actorIds.length === 0) continue;
+
+      const actionDateMs = getActionDateMs(record);
+      for (const actorId of actorIds) {
+        const current = actorStats.get(actorId);
+        if (!current) {
+          actorStats.set(actorId, { actionCount: 1, firstSeenMs: actionDateMs });
+          continue;
+        }
+        let nextFirstSeen = current.firstSeenMs;
+        if (actionDateMs !== null && (nextFirstSeen === null || actionDateMs < nextFirstSeen)) {
+          nextFirstSeen = actionDateMs;
+        }
+        actorStats.set(actorId, {
+          actionCount: current.actionCount + 1,
+          firstSeenMs: nextFirstSeen,
+        });
+      }
+    }
+
+    const actorIds = Array.from(actorStats.keys());
+    if (actorIds.length === 0) {
+      return { actors: [], startups: [], newStartups: [] };
+    }
+
+    const actorRecords = await fetchLinkedRecords(ACTORS_TABLE, actorIds);
+    const nowMs = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+
+    const actorsById = new Map<string, DomainActorInsight>();
+    for (const actorRecord of actorRecords) {
+      const stats = actorStats.get(actorRecord.id);
+      if (!stats) continue;
+      const typeMainValues = toStringArray(
+        getField<unknown>(actorRecord, "Type_Main") ??
+          getField<unknown>(actorRecord, "Type Main")
+      );
+      const typeMain = typeMainValues[0] ?? undefined;
+      const type =
+        getTextValue(actorRecord, "Type") ??
+        undefined;
+      const logoUrl =
+        getAttachmentUrl(actorRecord, "Brandfetch Logo") ??
+        getAttachmentUrl(actorRecord, "brandfetch logo") ??
+        getAttachmentUrl(actorRecord, "Logo") ??
+        getAttachmentUrl(actorRecord, "Icon AI") ??
+        getTextValue(actorRecord, "Brandfetch Logo") ??
+        getTextValue(actorRecord, "Logo") ??
+        undefined;
+      const isStartup = typeMainValues.some((value) => isStartupActorType(value));
+      const firstSeenAt =
+        stats.firstSeenMs !== null ? new Date(stats.firstSeenMs).toISOString() : undefined;
+      const isNewStartup =
+        isStartup && stats.firstSeenMs !== null && stats.firstSeenMs >= nowMs - thirtyDaysMs;
+
+      actorsById.set(actorRecord.id, {
+        id: actorRecord.id,
+        name: getTextValue(actorRecord, "Name") || actorRecord.id,
+        type,
+        typeMain,
+        typeMainValues,
+        geography: getTextValue(actorRecord, "Geography") ?? undefined,
+        logoUrl,
+        actionCount: stats.actionCount,
+        firstSeenAt,
+        isStartup,
+        isNewStartup,
+      });
+    }
+
+    for (const actorId of actorIds) {
+      if (actorsById.has(actorId)) continue;
+      const stats = actorStats.get(actorId);
+      if (!stats) continue;
+      actorsById.set(actorId, {
+        id: actorId,
+        name: actorId,
+        actionCount: stats.actionCount,
+        firstSeenAt: stats.firstSeenMs !== null ? new Date(stats.firstSeenMs).toISOString() : undefined,
+        isStartup: false,
+        isNewStartup: false,
+      });
+    }
+
+    const actors = Array.from(actorsById.values()).sort(
+      (a, b) => b.actionCount - a.actionCount || a.name.localeCompare(b.name)
+    );
+    const startups = actors.filter((actor) => actor.isStartup);
+    const newStartups = startups.filter((actor) => actor.isNewStartup);
+
+    return { actors, startups, newStartups };
+  } catch (error) {
+    console.error("Error fetching domain actor insights:", error);
+    return { actors: [], startups: [], newStartups: [] };
+  }
 }
 
 // Fetch domain content organized by Now/New/Next

@@ -46,3 +46,41 @@ export async function updateActionStatus(
     return null;
   }
 }
+
+interface UpdateActionEditableFieldsInput {
+  actionId: string;
+  signalType?: string;
+  actorIds?: string[];
+}
+
+export async function updateActionEditableFields({
+  actionId,
+  signalType,
+  actorIds,
+}: UpdateActionEditableFieldsInput): Promise<boolean> {
+  if (!actionId) return false;
+  try {
+    const fields: Record<string, unknown> = {};
+    if (typeof signalType === "string") {
+      fields["Action Type"] = signalType.trim();
+    }
+    if (Array.isArray(actorIds)) {
+      fields["REL Actor"] = actorIds.filter(
+        (id): id is string => typeof id === "string" && id.trim().length > 0
+      );
+    }
+    if (Object.keys(fields).length === 0) return false;
+
+    const base = getBase();
+    const table = base(ACTIONS_TABLE) as {
+      update: (
+        records: { id: string; fields: Record<string, unknown> }[]
+      ) => Promise<unknown>;
+    };
+    await fetchWithRetry(() => table.update([{ id: actionId, fields }]));
+    return true;
+  } catch (error) {
+    console.error("Error updating action editable fields:", error);
+    return false;
+  }
+}
