@@ -5,15 +5,25 @@ import { useRouter } from "next/navigation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanel } from "../ui/resizable-panel";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
+import { Plus } from "lucide-react";
 import type { Radar } from "@/app/types/radars";
 
 interface RadarsSidepanelProps {
   radars: Radar[];
   currentRadarId?: string;
+  onCreateRadarClick?: () => void;
+  createMessage?: string | null;
 }
 
-export function RadarsSidepanel({ radars, currentRadarId }: RadarsSidepanelProps) {
+export function RadarsSidepanel({
+  radars,
+  currentRadarId,
+  onCreateRadarClick,
+  createMessage,
+}: RadarsSidepanelProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -39,13 +49,22 @@ export function RadarsSidepanel({ radars, currentRadarId }: RadarsSidepanelProps
       className="border-r bg-card"
     >
       <div className="p-4 border-b">
-        <h2 className="text-lg font-semibold mb-3">Trend Radars</h2>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h2 className="text-lg font-semibold">Trend Radars</h2>
+          <Button size="sm" onClick={onCreateRadarClick}>
+            <Plus className="h-4 w-4 mr-1" />
+            Create
+          </Button>
+        </div>
         <Input
           placeholder="Search radars..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full"
         />
+        {createMessage && (
+          <p className="text-xs text-muted-foreground mt-2">{createMessage}</p>
+        )}
       </div>
       <ScrollArea className="h-[calc(100vh-120px)]">
         <div>
@@ -82,7 +101,14 @@ export function RadarsSidepanel({ radars, currentRadarId }: RadarsSidepanelProps
                     </div>
                   )}
                   <div>
-                    <div className="font-medium text-sm">{radar.name}</div>
+                    <div className="font-medium text-sm flex items-center gap-1.5">
+                      <span>{radar.name}</span>
+                      {(radar.status || "").trim().toLowerCase() === "draft" && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          Draft
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {radar.trends.length}{" "}
                       {radar.trends.length === 1 ? "trend" : "trends"}

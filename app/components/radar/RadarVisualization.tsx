@@ -57,7 +57,7 @@ export function RadarVisualization({
   const [hoveredTech, setHoveredTech] = useState<Trend | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { selectedFilters, selectedCluster } = useFilters();
+  const { selectedFilters, selectedCluster, setSelectedCluster } = useFilters();
   const handleClusterFilter = useClusterFilter();
   const { zoom, rotation, x, y, handleWheel } = useZoomAndPan();
 
@@ -66,7 +66,8 @@ export function RadarVisualization({
     clusters,
     technologies,
     selectedFilters,
-    selectedCluster
+    selectedCluster,
+    clusterType
   );
 
   const handleClusterSelect = (cluster: Cluster) => {
@@ -132,25 +133,58 @@ export function RadarVisualization({
           </SelectContent>
         </Select>
 
-        <Select value={selectedCluster || "all"} onValueChange={(value) => {
-          const cluster = value === "all" ? null : filteredClusters.find(c => c.id === value) || clusters.find(c => c.id === value);
-          handleClusterFilter(cluster ?? null); 
-          onClusterSelect?.(cluster ?? null);
-        }}>
-          <SelectTrigger className="w-[180px] bg-background/50 backdrop-blur">
-            <SelectValue placeholder="All Clusters" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Clusters</SelectItem>
-            {filteredClusters
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((cluster) => (
-                <SelectItem key={cluster.id} value={cluster.id}>
-                  {cluster.name}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        {clusterType === "domain" ? (
+          <Select
+            value={selectedCluster || "all"}
+            onValueChange={(value) => {
+              const next = value === "all" ? null : value;
+              setSelectedCluster(next);
+            }}
+          >
+            <SelectTrigger className="w-[180px] bg-background/50 backdrop-blur">
+              <SelectValue placeholder="All Domains" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Domains</SelectItem>
+              {Array.from(
+                new Set(technologies.map((t) => t.domain))
+              )
+                .sort()
+                .map((domain) => (
+                  <SelectItem key={domain} value={domain}>
+                    {domain}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select
+            value={selectedCluster || "all"}
+            onValueChange={(value) => {
+              const cluster =
+                value === "all"
+                  ? null
+                  : filteredClusters.find((c) => c.id === value) ||
+                    clusters.find((c) => c.id === value);
+              handleClusterFilter(cluster ?? null);
+              onClusterSelect?.(cluster ?? null);
+            }}
+          >
+            <SelectTrigger className="w-[180px] bg-background/50 backdrop-blur">
+              <SelectValue placeholder="All Clusters" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clusters</SelectItem>
+              {filteredClusters
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((cluster) => (
+                  <SelectItem key={cluster.id} value={cluster.id}>
+                    {cluster.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <motion.div

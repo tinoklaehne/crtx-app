@@ -6,6 +6,7 @@ import { MatrixVisualization } from "@/app/components/matrix/MatrixVisualization
 import { Sidepanel } from "@/app/components/layout/Sidepanel";
 import { TrendsKanbanView } from "./TrendsKanbanView";
 import { TechnologyDetailModal } from "./TechnologyDetailModal";
+import { useFilters } from "@/app/contexts/FilterContext";
 import type { Trend } from "@/app/types/trends";
 import type { Cluster } from "@/app/types/clusters";
 import type { NodePositioning } from "@/app/types";
@@ -24,6 +25,7 @@ export function DomainTrendsView({ trends, clusters }: DomainTrendsViewProps) {
   const [activeCluster, setActiveCluster] = useState<Cluster | undefined>();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { setSelectedCluster } = useFilters();
 
   const handleTrendSelect = (trend: Trend) => {
     setActiveTechnology(trend);
@@ -36,9 +38,13 @@ export function DomainTrendsView({ trends, clusters }: DomainTrendsViewProps) {
     if (cluster) {
       setActiveCluster(cluster);
       setActiveView("cluster-detail");
+      setSelectedCluster(
+        clusterType === "domain" ? (cluster.domain as string) : cluster.id
+      );
     } else {
       setActiveCluster(undefined);
       setActiveView("technologies");
+      setSelectedCluster(null);
     }
   };
 
@@ -84,6 +90,7 @@ export function DomainTrendsView({ trends, clusters }: DomainTrendsViewProps) {
           onNavigateCluster={handleNavigateCluster}
           onViewChange={setActiveView}
           nodePositioning={nodePositioning}
+          clusterType={clusterType}
           showTechnologiesTitle={false}
         />
         {view === "matrix" ? (
@@ -96,6 +103,7 @@ export function DomainTrendsView({ trends, clusters }: DomainTrendsViewProps) {
             onNodePositioningChange={setNodePositioning}
             view={view}
             onViewChange={setView}
+            clusterType={clusterType}
           />
         ) : (
           <RadarVisualization

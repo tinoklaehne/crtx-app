@@ -8,6 +8,36 @@ import type { Domain } from '@/app/types/domains';
 
 const RADARS_TABLE = 'tbltJj6hqqNdbcJjT';
 const TRENDS_TABLE = 'tblZ683rmMtm6BkyL'; // Same as general.ts – trends linked by REL_Trends
+const DEFAULT_SELECT_KPI_VALUES = ["BRL", "TRL", "Trend Horizon", "Strategic Action"] as const;
+
+function getRadarWriteFields(
+  name: string,
+  description: string | undefined,
+  trendIds: string[],
+  status?: string,
+) {
+  const cleanedStatus = (status || "Draft").trim() || "Draft";
+  return {
+    Name: name.trim(),
+    Description: description?.trim() || "",
+    REL_Trends: trendIds.filter(Boolean),
+    "Radar Type": "Standalone",
+    Status: cleanedStatus,
+    Type: "Travel",
+    Universe: "Travel",
+    Level: "Micro",
+    Cluster: "Domain",
+    Select_Cluster: ["Domain"],
+    Select_KPI: [...DEFAULT_SELECT_KPI_VALUES],
+  } as Record<string, unknown>;
+}
+
+function isUnknownFieldError(error: unknown): boolean {
+  const e = error as { error?: string; message?: string; originalError?: { error?: string; message?: string } };
+  const errType = String(e?.error ?? e?.originalError?.error ?? "").toUpperCase();
+  const message = String(e?.message ?? e?.originalError?.message ?? "").toUpperCase();
+  return errType.includes("UNKNOWN_FIELD_NAME") || message.includes("UNKNOWN_FIELD_NAME");
+}
 
 export async function getRadar(id: string): Promise<Radar | null> {
   try {
@@ -40,6 +70,8 @@ export async function getRadar(id: string): Promise<Radar | null> {
           ? ((rawLogo[0] as any).url as string).trim() || undefined
           : undefined;
 
+    const owner = getField<string[]>(record, 'Owner') || [];
+
     return {
       id: record.id,
       name: getField(record, 'Name') || '',
@@ -52,7 +84,9 @@ export async function getRadar(id: string): Promise<Radar | null> {
       lastModified: getField(record, 'Last Modified') || new Date().toISOString(),
       trends: getField(record, 'REL_Trends') || [],
       radarType: getField(record, 'Radar Type') || undefined,
+      status: getField(record, 'Status') || undefined,
       trendCycleIds: (getField<string[]>(record, 'Trend Cycles') ?? getField<string[]>(record, 'REL_TrendCycles') ?? undefined) || undefined,
+      ownerIds: owner.filter(Boolean),
     };
   } catch (error) {
     console.error('Error fetching radar:', error);
@@ -83,6 +117,8 @@ export async function getAllRadars(): Promise<Radar[]> {
             ? ((rawLogo[0] as any).url as string).trim() || undefined
             : undefined;
 
+      const owner = getField<string[]>(record, 'Owner') || [];
+
       return {
         id: record.id,
         name: getField(record, 'Name') || '',
@@ -95,13 +131,199 @@ export async function getAllRadars(): Promise<Radar[]> {
         lastModified: getField(record, 'Last Modified') || new Date().toISOString(),
         trends: getField(record, 'REL_Trends') || [],
         radarType: getField(record, 'Radar Type') || undefined,
+        status: getField(record, 'Status') || undefined,
         trendCycleIds: (getField<string[]>(record, 'Trend Cycles') ?? getField<string[]>(record, 'REL_TrendCycles') ?? undefined) || undefined,
+        ownerIds: owner.filter(Boolean),
       };
     });
   } catch (error) {
     console.error('Error fetching radars:', error);
     // Return empty array instead of throwing to prevent build failures
     return [];
+  }
+}
+
+interface CreateRadarInput {
+  name: string;
+  description?: string;
+  trendIds: string[];
+  ownerIds?: string[];
+}
+
+interface UpdateRadarInput {
+  radarId: string;
+  name: string;
+  description?: string;
+  trendIds: string[];
+  status?: string;
+  ownerIds?: string[];
+}
+
+export async function createRadar({
+  name,
+  description,
+  trendIds,
+  ownerIds,
+}: CreateRadarInput): Promise<Radar | null> {
+  if (!name.trim()) return null;
+  try {
+    const base = getBase();
+    const table = base(RADARS_TABLE) as unknown as {
+      create: (
+        records: { fields: Record<string, unknown> }[]
+      ) => Promise<readonly { id: string; fields?: Record<string, unknown>; get?: (field: string) => unknown }[]>;
+    };
+
+    const baseFields = {
+      ...getRadarWriteFields(name, description, trendIds, "Draft"),
+      ...(ownerIds && ownerIds.length ? { Owner: ownerIds } : {}),
+    };
+    const fallbackFieldDrops = [
+      [] as string[],
+      ["Select_KPI"],
+      ["Select_Cluster"],
+      ["Universe"],
+      ["Select_KPI", "Select_Cluster"],
+      ["Select_KPI", "Universe"],
+      ["Select_Cluster", "Universe"],
+      ["Select_KPI", "Select_Cluster", "Universe"],
+    ];
+
+    let created:
+      | readonly { id: string; fields?: Record<string, unknown>; get?: (field: string) => unknown }[]
+      | null = null;
+    let lastError: unknown = null;
+    for (const fieldsToDrop of fallbackFieldDrops) {
+      const fields = { ...baseFields };
+      fieldsToDrop.forEach((key) => delete fields[key]);
+      try {
+        created = await fetchWithRetry(() =>
+          table.create([
+            {
+              fields,
+            },
+          ])
+        );
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!isUnknownFieldError(error)) throw error;
+      }
+    }
+    if (!created) {
+      if (lastError) throw lastError;
+      return null;
+    }
+    const createdList = Array.from(created);
+    const record = createdList.length > 0 ? createdList[0] : null;
+    if (!record) return null;
+
+    return {
+      id: record.id,
+      name: (getField<string>(record, "Name") ?? name).trim(),
+      description: getField<string>(record, "Description") ?? description?.trim() ?? "",
+      logoUrl: undefined,
+      type: (getField<Radar["type"]>(record, "Type") ?? "Travel"),
+      level: (getField<Radar["level"]>(record, "Level") ?? "Micro"),
+      cluster: (getField<Radar["cluster"]>(record, "Cluster") ?? "Domain"),
+      totalTrends: trendIds.length,
+      lastModified: getField<string>(record, "Last Modified") ?? new Date().toISOString(),
+      trends: getField<string[]>(record, "REL_Trends") ?? trendIds.filter(Boolean),
+      radarType: getField<string>(record, "Radar Type") ?? "Standalone",
+      status: getField<string>(record, "Status") ?? "Draft",
+      trendCycleIds: undefined,
+      ownerIds: ownerIds?.filter(Boolean),
+    };
+  } catch (error) {
+    console.error("Error creating radar:", error);
+    return null;
+  }
+}
+
+export async function updateRadar({
+  radarId,
+  name,
+  description,
+  trendIds,
+  status,
+  ownerIds,
+}: UpdateRadarInput): Promise<Radar | null> {
+  if (!radarId.trim() || !name.trim()) return null;
+  try {
+    const base = getBase();
+    const table = base(RADARS_TABLE) as unknown as {
+      update: (
+        records: { id: string; fields: Record<string, unknown> }[]
+      ) => Promise<readonly { id: string; fields?: Record<string, unknown>; get?: (field: string) => unknown }[]>;
+    };
+
+    const baseFields = {
+      ...getRadarWriteFields(name, description, trendIds, status),
+      ...(ownerIds && ownerIds.length ? { Owner: ownerIds } : {}),
+    };
+    const fallbackFieldDrops = [
+      [] as string[],
+      ["Select_KPI"],
+      ["Select_Cluster"],
+      ["Universe"],
+      ["Select_KPI", "Select_Cluster"],
+      ["Select_KPI", "Universe"],
+      ["Select_Cluster", "Universe"],
+      ["Select_KPI", "Select_Cluster", "Universe"],
+    ];
+
+    let updated:
+      | readonly { id: string; fields?: Record<string, unknown>; get?: (field: string) => unknown }[]
+      | null = null;
+    let lastError: unknown = null;
+    for (const fieldsToDrop of fallbackFieldDrops) {
+      const fields = { ...baseFields };
+      fieldsToDrop.forEach((key) => delete fields[key]);
+      try {
+        updated = await fetchWithRetry(() =>
+          table.update([
+            {
+              id: radarId,
+              fields,
+            },
+          ])
+        );
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!isUnknownFieldError(error)) throw error;
+      }
+    }
+    if (!updated) {
+      if (lastError) throw lastError;
+      return null;
+    }
+
+    const updatedList = Array.from(updated);
+    const record = updatedList.length > 0 ? updatedList[0] : null;
+    if (!record) return null;
+
+    return {
+      id: record.id,
+      name: (getField<string>(record, "Name") ?? name).trim(),
+      description: getField<string>(record, "Description") ?? description?.trim() ?? "",
+      logoUrl: undefined,
+      type: (getField<Radar["type"]>(record, "Type") ?? "Travel"),
+      level: (getField<Radar["level"]>(record, "Level") ?? "Micro"),
+      cluster: (getField<Radar["cluster"]>(record, "Cluster") ?? "Domain"),
+      totalTrends: trendIds.length,
+      lastModified: getField<string>(record, "Last Modified") ?? new Date().toISOString(),
+      trends: getField<string[]>(record, "REL_Trends") ?? trendIds.filter(Boolean),
+      radarType: getField<string>(record, "Radar Type") ?? "Standalone",
+      status: getField<string>(record, "Status") ?? "Draft",
+      trendCycleIds: undefined,
+      ownerIds: ownerIds?.filter(Boolean),
+    };
+  } catch (error) {
+    console.error("Error updating radar:", error);
+    return null;
   }
 }
 

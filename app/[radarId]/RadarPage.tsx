@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,14 @@ import { RadarVisualization } from "../components/radar/RadarVisualization";
 import { MatrixVisualization } from "../components/matrix/MatrixVisualization";
 import { TrendsKanbanView } from "../components/domains/TrendsKanbanView";
 import { TechnologyDetailModal } from "../components/domains/TechnologyDetailModal";
+import { CreateRadarModal } from "../components/radar/CreateRadarModal";
 import { useRadarStore } from "@/app/store/radarStore";
 import { useFilters } from "@/app/contexts/FilterContext";
 import type { Cluster } from "@/app/types/clusters";
 import type { Trend } from "@/app/types/trends";
 import type { Radar } from "@/app/types/radars";
 import type { NodePositioning } from "@/app/types";
+import type { RadarTrendOption } from "@/app/radars/page";
 
 interface RadarPageProps {
   radarId?: string;
@@ -26,6 +29,7 @@ interface RadarPageProps {
   initialClusters: Cluster[];
   isLoading: boolean;
   error: string | null;
+  trendOptions?: RadarTrendOption[];
 }
 
 export function RadarPage({ 
@@ -35,14 +39,22 @@ export function RadarPage({
   initialTechnologies, 
   initialClusters, 
   isLoading: initialLoading, 
-  error: initialError 
+  error: initialError,
+  trendOptions = [],
 }: RadarPageProps) {
+  const router = useRouter();
   const [nodePositioning, setNodePositioning] = useState<NodePositioning>("trl");
   const [viewMode, setViewMode] = useState<"radar" | "matrix" | "kanban">("radar");
   const [clusterType, setClusterType] = useState<"parent" | "taxonomy" | "domain">("parent");
   const [radar, setRadar] = useState<Radar | null>(initialRadar || null);
   const [radars] = useState<Radar[]>(initialRadars);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [ownerOptions, setOwnerOptions] = useState<
+    { id: string; name: string; email?: string }[]
+  >([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editMessage, setEditMessage] = useState<string | null>(null);
 
   const {
     technologies,
@@ -75,6 +87,43 @@ export function RadarPage({
       setClusterType(initialRadar.cluster.toLowerCase() as "parent" | "taxonomy" | "domain");
     }
   }, [initialTechnologies, initialClusters, initialLoading, initialError, initialRadar, setTechnologies, setClusters, setIsLoading, setError]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProfile() {
+      try {
+        const res = await fetch("/api/user/profile", { credentials: "include" });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && data?.user?.id) {
+          setCurrentUserId(data.user.id as string);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    async function loadOwners() {
+      try {
+        const res = await fetch("/api/radars/owners", { credentials: "include" });
+        const data = await res.json().catch(() => null);
+        if (!cancelled && res.ok && Array.isArray(data?.owners)) {
+          setOwnerOptions(
+            data.owners.map((o: any) => ({
+              id: String(o.id),
+              name: String(o.name || ""),
+              email: o.email ? String(o.email) : undefined,
+            }))
+          );
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadProfile();
+    loadOwners();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleClusterTypeChange = async (type: "parent" | "taxonomy" | "domain") => {
     setClusterType(type);
@@ -119,6 +168,41 @@ export function RadarPage({
     }
   };
 
+  const activeTechnologyCluster = activeTechnology
+    ? clusters.find((c) => c.id === activeTechnology.clusterId)
+    : undefined;
+  const isDraftRadar = (radar?.status || "").trim().toLowerCase() === "draft";
+  const isOwner =
+    !!currentUserId && Array.isArray(radar?.ownerIds)
+      ? radar!.ownerIds!.includes(currentUserId)
+      : false;
+  const visibleRadars = useMemo(
+    () =>
+      radars.filter((r) => {
+        const isDraft = (r.status || "").trim().toLowerCase() === "draft";
+        const owner =
+          !!currentUserId && Array.isArray(r.ownerIds)
+            ? r.ownerIds.includes(currentUserId)
+            : false;
+        if (isDraft) {
+          return owner;
+        }
+        return true;
+      }).sort((a, b) => {
+        const aDraft =
+          (a.status || "").trim().toLowerCase() === "draft" &&
+          (!!currentUserId && a.ownerIds?.includes(currentUserId));
+        const bDraft =
+          (b.status || "").trim().toLowerCase() === "draft" &&
+          (!!currentUserId && b.ownerIds?.includes(currentUserId));
+        if (aDraft !== bDraft) {
+          return bDraft ? 1 : -1;
+        }
+        return a.name.localeCompare(b.name);
+      }),
+    [radars, currentUserId]
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -147,10 +231,6 @@ export function RadarPage({
     );
   }
 
-  const activeTechnologyCluster = activeTechnology
-    ? clusters.find((c) => c.id === activeTechnology.clusterId)
-    : undefined;
-
   return (
     <>
       <div className="flex h-screen bg-background text-foreground">
@@ -159,7 +239,10 @@ export function RadarPage({
           onViewChange={setActiveView}
           radarName={radar?.name}
         />
-        <RadarsSidepanel radars={radars} currentRadarId={radarId} />
+        <RadarsSidepanel
+          radars={visibleRadars}
+          currentRadarId={radarId}
+        />
         <Sidepanel
           clusters={clusters}
           technologies={technologies}
@@ -173,6 +256,9 @@ export function RadarPage({
           onViewChange={setActiveView}
           nodePositioning={nodePositioning}
           radarName={radar?.name}
+          radarStatus={radar?.status}
+          onEditRadar={isOwner ? () => setIsEditOpen(true) : undefined}
+          clusterType={clusterType}
           universe={radar?.type === "Travel" ? "Travel" : "General"}
         />
         {viewMode === "matrix" ? (
@@ -185,6 +271,7 @@ export function RadarPage({
             onNodePositioningChange={setNodePositioning}
             view={viewMode}
             onViewChange={setViewMode}
+            clusterType={clusterType}
             onKanbanView={() => <TrendsKanbanView trends={technologies} onTrendSelect={handleTechnologySelect} />}
           />
         ) : (
@@ -215,6 +302,60 @@ export function RadarPage({
           signals={[]}
         />
       )}
+      {editMessage && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+          <p className="text-xs text-muted-foreground bg-background/95 border rounded px-3 py-1.5">
+            {editMessage}
+          </p>
+        </div>
+      )}
+      <CreateRadarModal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        mode="edit"
+        trendOptions={trendOptions}
+        initialValues={{
+          name: radar?.name ?? "",
+          description: radar?.description ?? "",
+          trendIds: radar?.trends ?? [],
+          status: radar?.status ?? "Draft",
+          ownerIds: radar?.ownerIds ?? [],
+        }}
+        allowStatusChange
+        ownerOptions={ownerOptions}
+        onSubmit={async ({ name, description, trendIds, status, ownerIds }) => {
+          if (!radar?.id) return false;
+          const res = await fetch("/api/radars/update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ radarId: radar.id, name, description, trendIds, status, ownerIds }),
+          });
+          if (!res.ok) {
+            setEditMessage("Failed to save draft radar changes.");
+            return false;
+          }
+          setEditMessage(status && status.toLowerCase() === "published" ? "Radar published." : "Draft radar updated.");
+          setRadar((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  name,
+                  description: description ?? "",
+                  trends: trendIds,
+                  status: status ?? prev.status,
+                }
+              : prev
+          );
+          setIsEditOpen(false);
+          // Ensure server data (trends/clusters) is fully refreshed
+          if (typeof window !== "undefined") {
+            window.location.reload();
+          } else {
+            router.refresh();
+          }
+          return true;
+        }}
+      />
     </>
   );
 

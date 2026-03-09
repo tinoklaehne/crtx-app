@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getRingLabel } from "../radar/utils/calculations";
 import { ViewToggle } from "../ui/view-toggle";
 import { useFilters } from "@/app/contexts/FilterContext";
-import type { Cluster, Trend } from "@/app/types";
+import type { Cluster, Trend, Domain } from "@/app/types";
+import { DOMAIN_COLORS } from "@/app/types/domains";
 import type { NodePositioning } from "@/app/types";
 import type { FilterCategory } from "@/app/components/ui/filter-toggle";
 
@@ -20,6 +21,7 @@ interface MatrixVisualizationProps {
   view: "radar" | "matrix" | "kanban";
   onViewChange?: (view: "radar" | "matrix" | "kanban") => void;
   onKanbanView?: () => React.ReactNode;
+  clusterType?: "parent" | "taxonomy" | "domain";
 }
 
 interface AxisConfig {
@@ -42,7 +44,8 @@ export function MatrixVisualization({
   onNodePositioningChange,
   view,
   onViewChange = () => {},
-  onKanbanView
+  onKanbanView,
+  clusterType = "parent",
 }: MatrixVisualizationProps) {
   const [hoveredTech, setHoveredTech] = useState<Trend | null>(null);
   const [xAxis, setXAxis] = useState<NodePositioning>("trl");
@@ -52,7 +55,7 @@ export function MatrixVisualization({
   const [y, setY] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const jitterValues = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const { selectedFilters, selectedCluster } = useFilters();
+  const { selectedFilters, selectedCluster, setSelectedCluster } = useFilters();
 
   if (view === "kanban") {
     return (
@@ -106,20 +109,34 @@ export function MatrixVisualization({
 
   const handleClusterChange = (value: string) => {
     if (value === "all") {
+      setSelectedCluster(null);
       onClusterSelect(null);
       return;
     }
 
-    const cluster = clusters.find(c => c.id === value);
+    if (clusterType === "domain") {
+      // In domain mode, selectedCluster represents the domain string directly.
+      setSelectedCluster(value);
+      return;
+    }
+
+    const cluster = clusters.find((c) => c.id === value);
     if (cluster) {
+      setSelectedCluster(cluster.id);
       onClusterSelect(cluster);
     }
   };
 
-  // Filter technologies based on selected domains and cluster
-  const filteredTechnologies = technologies.filter(tech => {
-    const matchesDomain = selectedFilters.includes(tech.domain.toLowerCase() as FilterCategory);
-    const matchesCluster = selectedCluster ? tech.clusterId === selectedCluster : true;
+  // Filter technologies based on selected domains and cluster (respecting clusterType)
+  const filteredTechnologies = technologies.filter((tech) => {
+    const matchesDomain = selectedFilters.includes(
+      tech.domain.toLowerCase() as FilterCategory
+    );
+    const matchesCluster = selectedCluster
+      ? clusterType === "domain"
+        ? tech.domain === selectedCluster
+        : tech.clusterId === selectedCluster
+      : true;
     return matchesDomain && matchesCluster;
   });
 
@@ -128,19 +145,45 @@ export function MatrixVisualization({
       <ViewToggle view={view} onChange={onViewChange} />
       
       <div className="absolute top-4 right-4 z-10">
-        <Select value={selectedCluster || "all"} onValueChange={handleClusterChange}>
-          <SelectTrigger className="w-[180px] bg-background/50 backdrop-blur">
-            <SelectValue placeholder="All Clusters" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Clusters</SelectItem>
-            {[...clusters].sort((a, b) => a.name.localeCompare(b.name)).map((cluster) => (
-              <SelectItem key={cluster.id} value={cluster.id}>
-                {cluster.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {clusterType === "domain" ? (
+          <Select
+            value={selectedCluster || "all"}
+            onValueChange={handleClusterChange}
+          >
+            <SelectTrigger className="w-[180px] bg-background/50 backdrop-blur">
+              <SelectValue placeholder="All Domains" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Domains</SelectItem>
+              {Array.from(new Set(technologies.map((t) => t.domain)))
+                .sort()
+                .map((domain) => (
+                  <SelectItem key={domain} value={domain}>
+                    {domain}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Select
+            value={selectedCluster || "all"}
+            onValueChange={handleClusterChange}
+          >
+            <SelectTrigger className="w-[180px] bg-background/50 backdrop-blur">
+              <SelectValue placeholder="All Clusters" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Clusters</SelectItem>
+              {[...clusters]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((cluster) => (
+                  <SelectItem key={cluster.id} value={cluster.id}>
+                    {cluster.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <motion.div
@@ -207,8 +250,11 @@ export function MatrixVisualization({
 
           {/* Technology nodes */}
           {filteredTechnologies.map(tech => {
-            const cluster = clusters.find(c => c.id === tech.clusterId);
-            if (!cluster) return null;
+            const cluster = clusters.find((c) => c.id === tech.clusterId);
+            const color =
+              clusterType === "domain"
+                ? DOMAIN_COLORS[tech.domain as Domain] || "#00ff80"
+                : cluster?.colorCode || "#00ff80";
 
             const jitter = jitterValues.current.get(tech.id) || { x: 0, y: 0 };
             
@@ -236,7 +282,7 @@ export function MatrixVisualization({
               >
                 <div 
                   className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-                  style={{ backgroundColor: cluster.colorCode }}
+                  style={{ backgroundColor: color }}
                 />
                 <div 
                   className={`absolute whitespace-nowrap text-xs text-foreground ${

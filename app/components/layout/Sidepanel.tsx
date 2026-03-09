@@ -9,6 +9,7 @@ import { TechnologyDetailSection } from "./Sidepanel/TechnologyDetailSection";
 import { ClusterDetailSection } from "./Sidepanel/ClusterDetailSection";
 import { ResizablePanel } from "../ui/resizable-panel";
 import { useRadarStore } from "@/app/store/radarStore";
+import { useFilters } from "@/app/contexts/FilterContext";
 import type { Cluster } from "@/app/types/clusters";
 import type { Trend } from "@/app/types/trends";
 import type { NodePositioning } from "@/app/types";
@@ -26,6 +27,9 @@ interface SidepanelProps {
   onViewChange: (view: "home" | "clusters" | "technologies" | "detail" | "cluster-detail") => void;
   nodePositioning: NodePositioning;
   radarName?: string;
+  radarStatus?: string;
+  onEditRadar?: () => void;
+  clusterType?: "parent" | "taxonomy" | "domain";
   universe?: "General" | "Travel";
   showTechnologiesTitle?: boolean;
 }
@@ -43,18 +47,33 @@ export function Sidepanel({
   onViewChange,
   nodePositioning,
   radarName,
+  radarStatus,
+  onEditRadar,
+  clusterType = "parent",
   universe = "General",
   showTechnologiesTitle = true,
 }: SidepanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { selectedCluster } = useFilters();
 
   // Memoize filtered technologies to prevent unnecessary re-renders
   const filteredTechnologies = useMemo(() => {
     if (!technologies || !Array.isArray(technologies)) return [];
-    return technologies.filter(tech => 
+    const nameFiltered = technologies.filter((tech) =>
       tech.name?.toLowerCase().includes((searchQuery || "").toLowerCase())
     );
-  }, [technologies, searchQuery]);
+
+    if (clusterType === "domain") {
+      if (!selectedCluster || selectedCluster === "all") {
+        return nameFiltered;
+      }
+      return nameFiltered.filter((tech) => tech.domain === selectedCluster);
+    }
+
+    // For parent/taxonomy we leave domain dropdown alone; Parent clustering is
+    // handled via cluster clicks/cluster-detail view.
+    return nameFiltered;
+  }, [technologies, searchQuery, clusterType, selectedCluster]);
 
   return (
     <ResizablePanel defaultWidth={420} minWidth={320} maxWidth={640} className="border-r bg-card">
@@ -80,6 +99,9 @@ export function Sidepanel({
             onClusterSelect={onClusterSelect}
             nodePositioning={nodePositioning}
             radarName={radarName}
+            radarStatus={radarStatus}
+            onEditRadar={onEditRadar}
+            clusterType={clusterType}
             showTitle={showTechnologiesTitle}
           />
         )}
@@ -95,7 +117,11 @@ export function Sidepanel({
         {activeView === "cluster-detail" && activeCluster && (
           <ClusterDetailSection 
             cluster={activeCluster}
-            technologies={technologies.filter(t => t.clusterId === activeCluster.id)}
+            technologies={technologies.filter((t) =>
+              clusterType === "domain"
+                ? t.domain === activeCluster.domain
+                : t.clusterId === activeCluster.id
+            )}
             onNavigate={onNavigateCluster}
             onViewChange={onViewChange}
             onTechnologySelect={onTechnologySelect}

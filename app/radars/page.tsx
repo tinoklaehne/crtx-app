@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getAllRadars, fetchAllTrendRecordsForRadars, getTrendsForRadarFromRecords } from "@/lib/airtable/radars";
-import { getClusters } from "@/lib/airtable/general";
+import { getAllTrends, getClusters } from "@/lib/airtable/general";
 import { RadarsPage } from "../RadarsPage";
 import type { Radar } from "@/app/types/radars";
 import type { Cluster } from "@/app/types/clusters";
@@ -15,16 +15,48 @@ export type RadarDetail = {
   technologies: Trend[];
 };
 
+export type RadarTrendOption = {
+  id: string;
+  name: string;
+  scale: "Macro" | "Micro";
+  meta?: string;
+};
+
 const STANDALONE_TREND_TYPE = "Standalone";
 
 export default async function RadarsRoute() {
-  const allRadars = await getAllRadars().catch((err) => {
-    console.error("Failed to fetch radars:", err);
-    return [];
-  });
+  const [allRadars, macroTrends, microTrends] = await Promise.all([
+    getAllRadars().catch((err) => {
+      console.error("Failed to fetch radars:", err);
+      return [];
+    }),
+    getClusters("parent").catch((err) => {
+      console.error("Failed to fetch macro trends:", err);
+      return [];
+    }),
+    getAllTrends().catch((err) => {
+      console.error("Failed to fetch micro trends:", err);
+      return [];
+    }),
+  ]);
   const radars = (allRadars || []).filter(
     (r) => (r.radarType || "").trim() === STANDALONE_TREND_TYPE
   );
+
+  const trendOptions: RadarTrendOption[] = [
+    ...macroTrends.map((cluster) => ({
+      id: cluster.id,
+      name: cluster.name,
+      scale: "Macro" as const,
+      meta: cluster.domain,
+    })),
+    ...microTrends.map((trend) => ({
+      id: trend.id,
+      name: trend.name,
+      scale: "Micro" as const,
+      meta: trend.domain,
+    })),
+  ];
 
   const radarDetails: Record<string, RadarDetail> = {};
   const clusterCache = new Map<string, Cluster[]>();
@@ -58,6 +90,7 @@ export default async function RadarsRoute() {
       <RadarsPage
         initialRadars={radars}
         radarDetails={radarDetails}
+        trendOptions={trendOptions}
       />
     </Suspense>
   );

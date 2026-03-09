@@ -3,9 +3,12 @@
 import { useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import { getReadinessLevel } from "./utils";
-import type { Cluster, Trend } from "@/app/types";
+import type { Cluster, Trend, Domain } from "@/app/types";
+import { DOMAIN_COLORS } from "@/app/types/domains";
 import type { NodePositioning } from "@/app/types";
 
 interface TechnologiesSectionProps {
@@ -18,7 +21,10 @@ interface TechnologiesSectionProps {
   onClusterSelect: (cluster: Cluster | null) => void;
   nodePositioning: NodePositioning;
   radarName?: string;
+  radarStatus?: string;
+  onEditRadar?: () => void;
   showTitle?: boolean;
+  clusterType?: "parent" | "taxonomy" | "domain";
 }
 
 export function TechnologiesSection({
@@ -31,50 +37,111 @@ export function TechnologiesSection({
   onClusterSelect,
   nodePositioning,
   radarName,
+  radarStatus,
+  onEditRadar,
+  clusterType = "parent",
   showTitle = true,
 }: TechnologiesSectionProps) {
   const handleClusterClick = useCallback((cluster: Cluster) => {
     onClusterSelect(cluster);
   }, [onClusterSelect]);
 
-  // Group technologies by cluster
-  // First, try to match by clusterId, then by taxonomyId, then create an "Unclustered" group
-  const groupedTechnologies = filteredTechnologies.reduce((acc, tech) => {
-    // Try to find cluster by clusterId first
-    let cluster = clusters.find(c => c.id === tech.clusterId);
-    
-    // If not found, try taxonomyId
-    if (!cluster && tech.taxonomyId) {
-      cluster = clusters.find(c => c.id === tech.taxonomyId);
-    }
-    
-    // If still not found, create or use "Unclustered" group
-    if (!cluster) {
-      const unclusteredId = 'unclustered';
-      if (!acc.has(unclusteredId)) {
-        acc.set(unclusteredId, {
-          cluster: {
-            id: unclusteredId,
-            name: 'Unclustered',
-            description: 'Trends without cluster assignment',
-            imageUrl: '',
-            colorCode: '#888888',
-            domain: tech.domain || 'Technology' as any,
-            universe: tech.universe || 'General',
-          } as Cluster,
-          technologies: []
-        });
-      }
-      cluster = acc.get(unclusteredId)!.cluster;
-    }
+  // Group technologies by cluster/domain depending on clustering mode.
+  // For domain clustering we group by tech.domain values and synthesize Cluster objects
+  // so the list matches the radar visualization's domain-based grouping.
+  const groupedTechnologies = filteredTechnologies.reduce(
+    (acc, tech) => {
+      let clusterIdKey: string;
+      let clusterObj: Cluster | undefined;
 
-    if (!acc.has(cluster.id)) {
-      acc.set(cluster.id, { cluster, technologies: [] });
-    }
-    
-    acc.get(cluster.id)!.technologies.push(tech);
-    return acc;
-  }, new Map<string, { cluster: Cluster; technologies: Trend[] }>());
+      // Domain clustering: group by domain field, not by parent cluster IDs.
+      const useDomain = clusterType === "domain";
+
+      if (useDomain) {
+        const domain = (tech.domain || "Technology") as Domain;
+        clusterIdKey = `domain:${domain}`;
+        if (!acc.has(clusterIdKey)) {
+          clusterObj = {
+            id: domain,
+            name: domain,
+            description: `All ${domain} trends`,
+            imageUrl: "",
+            image: [],
+            colorCode:
+              DOMAIN_COLORS[domain] || "#888888",
+            domain,
+            universe: tech.universe || "General",
+            trends: [],
+            technologies: [],
+          } as Cluster;
+          acc.set(clusterIdKey, { cluster: clusterObj, technologies: [] });
+        }
+      } else {
+        // Parent / taxonomy clustering: try clusterId, then taxonomyId; fallback to "Unclustered".
+        // Try to find cluster by clusterId first
+        clusterObj = clusters.find((c) => c.id === tech.clusterId);
+
+        // If not found, try taxonomyId
+        if (!clusterObj && tech.taxonomyId) {
+          clusterObj = clusters.find((c) => c.id === tech.taxonomyId);
+        }
+
+        // If still not found, create or use "Unclustered" group
+        if (!clusterObj) {
+          const unclusteredId = "unclustered";
+          clusterIdKey = unclusteredId;
+          if (!acc.has(unclusteredId)) {
+            acc.set(unclusteredId, {
+              cluster: {
+                id: unclusteredId,
+                name: "Unclustered",
+                description: "Trends without cluster assignment",
+                imageUrl: "",
+                image: [],
+                colorCode: "#888888",
+                domain: (tech.domain || "Technology") as Domain,
+                universe: tech.universe || "General",
+                trends: [],
+                technologies: [],
+              } as Cluster,
+              technologies: [],
+            });
+          }
+        } else {
+          clusterIdKey = clusterObj.id;
+          if (!acc.has(clusterIdKey)) {
+            acc.set(clusterIdKey, { cluster: clusterObj, technologies: [] });
+          }
+        }
+      }
+
+      if (!clusterIdKey) {
+        // Safety: shouldn't happen, but avoid runtime errors.
+        clusterIdKey = "unclustered-fallback";
+        if (!acc.has(clusterIdKey)) {
+          acc.set(clusterIdKey, {
+            cluster: {
+              id: clusterIdKey,
+              name: "Unclustered",
+              description: "Trends without cluster assignment",
+              imageUrl: "",
+              image: [],
+              colorCode: "#888888",
+              domain: (tech.domain || "Technology") as Domain,
+              universe: tech.universe || "General",
+              trends: [],
+              technologies: [],
+            } as Cluster,
+            technologies: [],
+          });
+        }
+      }
+
+      acc.get(clusterIdKey)!.technologies.push(tech);
+      return acc;
+    },
+    new Map<string, { cluster: Cluster; technologies: Trend[] }>()
+  );
 
   // Calculate global index
   let globalIndex = 1;
@@ -83,10 +150,18 @@ export function TechnologiesSection({
     <div className="flex flex-col h-full">
       <div className="sticky top-0 z-10 bg-background">
         {showTitle && (
-          <div className="px-6 h-[72px] flex items-center">
-            <h2 className="text-2xl font-extrabold">
-              {radarName || "Trends"}
-            </h2>
+          <div className="px-6 h-[72px] flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-2xl font-extrabold truncate">{radarName || "Trends"}</h2>
+              {(radarStatus || "").trim().toLowerCase() === "draft" && (
+                <Badge variant="secondary">Draft</Badge>
+              )}
+            </div>
+            {(radarStatus || "").trim().toLowerCase() === "draft" && onEditRadar && (
+              <Button size="sm" variant="outline" onClick={onEditRadar}>
+                Edit
+              </Button>
+            )}
           </div>
         )}
 

@@ -1,10 +1,11 @@
 import { RadarPage } from "./RadarPage";
 import { getRadar, getAllRadars, getTrendsForRadar } from "@/lib/airtable/radars";
-import { getClusters } from "@/lib/airtable/general";
+import { getAllTrends, getClusters } from "@/lib/airtable/general";
 import { notFound } from "next/navigation";
 import type { Cluster } from "@/app/types/clusters";
 import type { Trend } from "@/app/types/trends";
 import type { Radar } from "@/app/types/radars";
+import type { RadarTrendOption } from "@/app/radars/page";
 
 export const revalidate = 3600;
 
@@ -28,6 +29,7 @@ export default async function Page(props: any) {
   let initialTechnologies: Trend[] = [];
   let initialClusters: Cluster[] = [];
   let allRadars: Radar[] = [];
+  let trendOptions: RadarTrendOption[] = [];
   let isLoading: boolean = false;
   let error: string | null = null;
 
@@ -50,12 +52,28 @@ export default async function Page(props: any) {
 
     if (process.env.NODE_ENV === 'development') console.log(`Fetching clusters and trends (REL_Trends) for radar ${initialRadar.name}`);
 
-    const [clustersData, technologiesData, radarsList] = await Promise.all([
+    const [clustersData, technologiesData, radarsList, macroTrends, microTrends] = await Promise.all([
       getClusters(clusterType, universe),
       getTrendsForRadar(initialRadar),
       getAllRadars().catch(() => []),
+      getClusters("parent").catch(() => []),
+      getAllTrends().catch(() => []),
     ]);
     allRadars = radarsList.filter((r) => (r.radarType || "").trim() === "Standalone");
+    trendOptions = [
+      ...macroTrends.map((cluster) => ({
+        id: cluster.id,
+        name: cluster.name,
+        scale: "Macro" as const,
+        meta: cluster.domain,
+      })),
+      ...microTrends.map((trend) => ({
+        id: trend.id,
+        name: trend.name,
+        scale: "Micro" as const,
+        meta: trend.domain,
+      })),
+    ];
 
     if (process.env.NODE_ENV === 'development') console.log(`Found ${clustersData.length} clusters and ${technologiesData.length} trends for this radar`);
 
@@ -95,6 +113,7 @@ export default async function Page(props: any) {
       initialClusters={initialClusters}
       isLoading={isLoading}
       error={error}
+      trendOptions={trendOptions}
     />
   );
 }
