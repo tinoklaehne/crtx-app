@@ -194,8 +194,10 @@ export async function createRadar({
       | null = null;
     let lastError: unknown = null;
     for (const fieldsToDrop of fallbackFieldDrops) {
-      const fields = { ...baseFields };
-      fieldsToDrop.forEach((key) => delete fields[key]);
+      const fields: Record<string, unknown> = { ...baseFields };
+      fieldsToDrop.forEach((key) => {
+        delete (fields as Record<string, unknown>)[key];
+      });
       try {
         created = await fetchWithRetry(() =>
           table.create([
@@ -278,8 +280,10 @@ export async function updateRadar({
       | null = null;
     let lastError: unknown = null;
     for (const fieldsToDrop of fallbackFieldDrops) {
-      const fields = { ...baseFields };
-      fieldsToDrop.forEach((key) => delete fields[key]);
+      const fields: Record<string, unknown> = { ...baseFields };
+      fieldsToDrop.forEach((key) => {
+        delete (fields as Record<string, unknown>)[key];
+      });
       try {
         updated = await fetchWithRetry(() =>
           table.update([
