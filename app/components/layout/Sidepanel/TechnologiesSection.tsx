@@ -157,7 +157,7 @@ export function TechnologiesSection({
                 <Badge variant="secondary">Draft</Badge>
               )}
             </div>
-            {(radarStatus || "").trim().toLowerCase() === "draft" && onEditRadar && (
+            {onEditRadar && (
               <Button size="sm" variant="outline" onClick={onEditRadar}>
                 Edit
               </Button>
