@@ -93,11 +93,17 @@ function mapRecordToMetric(record: any): TrendScoringMetric {
 function mapRecordToCycleItem(record: any): TrendCycleItem {
   const cycleId = (getField<string[]>(record, "Cycle") ?? [])[0] as string | undefined;
   const trendId = (getField<string[]>(record, "Trend") ?? [])[0] as string | undefined;
+  const rawStage = safeString(getField(record, "Stage") ?? undefined);
+  const normalized = (rawStage ?? "").toLowerCase();
+  let stage: TrendCycleItemStage;
+  if (normalized.includes("short")) stage = "Shortlisted";
+  else if (normalized.includes("exclud")) stage = "Excluded";
+  else stage = "Long List";
   return {
     id: record.id,
     cycleId: cycleId ?? "",
     trendId: trendId ?? "",
-    stage: ((getField<string>(record, "Stage") ?? "Long List") as TrendCycleItemStage) ?? "Long List",
+    stage,
     notes: safeString(getField(record, "Notes") ?? undefined),
     createdAt: asIso(getField(record, "Created") ?? undefined),
     updatedAt: asIso(getField(record, "Last Modified") ?? getField(record, "Updated") ?? undefined),
@@ -238,6 +244,8 @@ export async function upsertTrendAssessments(
     const table = base(TREND_ASSESSMENTS_TABLE) as any;
 
     const nowIso = new Date().toISOString();
+
+    // Minimal, always-safe fields
     const baseRecordsToCreate = params.metricScores.map((ms) => ({
       fields: {
         Cycle: [params.cycleId],
@@ -251,10 +259,11 @@ export async function upsertTrendAssessments(
       },
     }));
 
+    // Full field set – will be attempted first, adding Date_Submitted
     const fullRecordsToCreate = baseRecordsToCreate.map((r) => ({
       fields: {
         ...r.fields,
-        "Submitted At": nowIso,
+        Date_Submitted: nowIso,
       },
     }));
 
@@ -265,7 +274,7 @@ export async function upsertTrendAssessments(
       const message =
         (typeof error?.message === "string" && error.message) || "";
 
-      // If "Submitted At" doesn't exist in the Airtable schema yet,
+      // If Date_Submitted doesn't exist in the Airtable schema yet,
       // retry without that field so writes still succeed.
       if (message.includes("UNKNOWN_FIELD_NAME")) {
         try {
@@ -445,18 +454,40 @@ export async function updateTrendCycleItem(
   itemId: string,
   updates: Partial<Pick<TrendCycleItem, "stage" | "notes">>
 ): Promise<TrendCycleItem | null> {
+  const base = getBase();
+  const table = base(TREND_CYCLE_ITEMS_TABLE) as any;
+  const fields: Record<string, unknown> = {};
+  if (updates.stage !== undefined) {
+    // Map internal enum values to Airtable option labels, tolerating slight
+    // naming differences in the base (e.g. "Short list" vs "Shortlisted").
+    let outgoing: string;
+    switch (updates.stage) {
+      case "Shortlisted":
+        outgoing = "Short List";
+        break;
+      case "Excluded":
+        outgoing = "Excluded";
+        break;
+      case "Long List":
+      default:
+        outgoing = "Long List";
+        break;
+    }
+    fields["Stage"] = outgoing;
+  }
+  if (updates.notes !== undefined) fields["Notes"] = updates.notes;
+
   try {
-    const base = getBase();
-    const table = base(TREND_CYCLE_ITEMS_TABLE) as any;
-    const fields: Record<string, unknown> = {};
-    if (updates.stage !== undefined) fields["Stage"] = updates.stage;
-    if (updates.notes !== undefined) fields["Notes"] = updates.notes;
     const updated = await fetchWithRetry(() => table.update(itemId, fields));
     if (!updated) return null;
     return mapRecordToCycleItem(updated);
-  } catch (error) {
+  } catch (error: any) {
+    // Bubble a detailed message up so the API route can return it.
+    const message =
+      (typeof error?.message === "string" && error.message) ||
+      "Failed to update trend cycle item";
     console.error("Error updating trend cycle item:", error);
-    return null;
+    throw new Error(message);
   }
 }
 

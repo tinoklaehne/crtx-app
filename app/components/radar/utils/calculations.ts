@@ -1,4 +1,3 @@
-import { DOMAIN_COLORS } from "@/app/types/domains";
 import type { Cluster, Trend, Domain } from "@/app/types";
 import type { NodePositioning } from "@/app/types";
 
@@ -13,6 +12,25 @@ const HORIZON_LABELS: Record<number, string> = {
 
 // Convert degrees to radians
 const toRadians = (deg: number) => deg * Math.PI / 180;
+
+// Generate a per-radar color palette that assigns a distinct HSL color
+// to each cluster key (cluster ID or domain). This is intentionally
+// deterministic for a given ordered key list so that Radar, Matrix,
+// and Sidepanel can share colors.
+export function generateClusterPalette(clusterKeys: string[]): Record<string, string> {
+  const unique = Array.from(new Set(clusterKeys)).filter((key) => !!key && key.trim().length > 0);
+  const n = unique.length || 1;
+
+  const colors: Record<string, string> = {};
+  unique.forEach((key, index) => {
+    const hue = (index * 360) / n; // spread evenly around the color wheel
+    const saturation = 70;
+    const lightness = 55;
+    colors[key] = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  });
+
+  return colors;
+}
 
 // Get cluster ID based on cluster type
 const getClusterId = (
@@ -94,24 +112,46 @@ export const calculatePositions = (
     return clusterId && clusterId.trim() !== "";
   });
 
-  const activeClusters =
+  // Base clusters before palette assignment. For domain clustering we synthesize
+  // lightweight Cluster-like objects keyed by domain string. For parent/taxonomy
+  // we reuse existing clusters but only keep those that have at least one trend.
+  const baseClusters: Cluster[] =
     clusterType === "domain"
-      ? Array.from(new Set(validTechnologies.map(t => t.domain as Domain))).map(domain => ({
-          id: domain,
-          name: domain,
-          description: `All ${domain} trends`,
-          imageUrl: "",
-          colorCode: DOMAIN_COLORS[domain as keyof typeof DOMAIN_COLORS] || "#999999",
-          domain: domain as Domain,
-          trends: [],
-          universe: "General" as const,
-          technologies: []
-        }))
+      ? Array.from(new Set(validTechnologies.map((t) => t.domain as Domain)))
+          .sort()
+          .map((domain) => ({
+            id: domain,
+            name: domain,
+            description: `All ${domain} trends`,
+            imageUrl: "",
+            image: [],
+            colorCode: "",
+            domain: domain as Domain,
+            universe: "General" as const,
+            trends: [],
+            technologies: [],
+          }))
       : clusters
-          .filter(cluster =>
-            validTechnologies.some(t => getClusterId(t, clusterType) === cluster.id)
+          .filter((cluster) =>
+            validTechnologies.some((t) => getClusterId(t, clusterType) === cluster.id)
           )
           .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Build a deterministic palette for this radar based on the active cluster keys.
+  const palette = generateClusterPalette(
+    baseClusters.map((cluster) =>
+      clusterType === "domain" ? String(cluster.domain) : cluster.id
+    )
+  );
+
+  const activeClusters = baseClusters.map((cluster) => {
+    const key = clusterType === "domain" ? String(cluster.domain) : cluster.id;
+    const colorCode =
+      palette[key] ||
+      (cluster.colorCode && cluster.colorCode.trim()) ||
+      "#888888";
+    return { ...cluster, colorCode };
+  });
 
   // If no active clusters found, return empty array
   if (activeClusters.length === 0) {

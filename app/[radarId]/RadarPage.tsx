@@ -13,6 +13,7 @@ import { MatrixVisualization } from "../components/matrix/MatrixVisualization";
 import { TrendsKanbanView } from "../components/domains/TrendsKanbanView";
 import { TechnologyDetailModal } from "../components/domains/TechnologyDetailModal";
 import { CreateRadarModal } from "../components/radar/CreateRadarModal";
+import { generateClusterPalette } from "../components/radar/utils/calculations";
 import { useRadarStore } from "@/app/store/radarStore";
 import { useFilters } from "@/app/contexts/FilterContext";
 import type { Cluster } from "@/app/types/clusters";
@@ -171,11 +172,89 @@ export function RadarPage({
   const activeTechnologyCluster = activeTechnology
     ? clusters.find((c) => c.id === activeTechnology.clusterId)
     : undefined;
+
+  const clusterAccentMaps = useMemo(() => {
+    if (!technologies.length || !clusters.length) {
+      return {
+        byClusterId: new Map<string, string>(),
+        byDomain: {} as Record<string, string>,
+      };
+    }
+
+    const validTechnologies = technologies.filter((t) => {
+      if (clusterType === "domain") {
+        return !!(t.domain && t.domain.trim());
+      }
+      if (clusterType === "taxonomy") {
+        return !!(t.taxonomyId && t.taxonomyId.trim());
+      }
+      return !!(t.clusterId && t.clusterId.trim());
+    });
+
+    if (clusterType === "domain") {
+      const domains = Array.from(
+        new Set(
+          validTechnologies
+            .map((t) => t.domain)
+            .filter((d): d is string => !!d && d.trim().length > 0)
+        )
+      ).sort();
+      const palette = generateClusterPalette(domains);
+      const byClusterId = new Map<string, string>();
+      clusters.forEach((c) => {
+        const key = c.domain && palette[c.domain] ? c.domain : undefined;
+        if (key) {
+          byClusterId.set(c.id, palette[key]);
+        }
+      });
+      return { byClusterId, byDomain: palette };
+    }
+
+    const activeClusters = clusters
+      .filter((cluster) =>
+        validTechnologies.some((t) =>
+          (clusterType === "taxonomy" ? t.taxonomyId : t.clusterId) === cluster.id
+        )
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const palette = generateClusterPalette(activeClusters.map((c) => c.id));
+    const byClusterId = new Map<string, string>();
+    clusters.forEach((c) => {
+      if (palette[c.id]) {
+        byClusterId.set(c.id, palette[c.id]);
+      }
+    });
+
+    return { byClusterId, byDomain: {} as Record<string, string> };
+  }, [technologies, clusters, clusterType]);
+
+  const activeTechnologyAccentColor = useMemo(() => {
+    if (!activeTechnology) return undefined;
+
+    if (clusterType === "domain") {
+      const domainKey = activeTechnology.domain;
+      return (domainKey && clusterAccentMaps.byDomain[domainKey]) || undefined;
+    }
+
+    const clusterId = activeTechnology.clusterId || activeTechnology.taxonomyId || "";
+    return (clusterId && clusterAccentMaps.byClusterId.get(clusterId)) || undefined;
+  }, [activeTechnology, clusterType, clusterAccentMaps]);
   const isDraftRadar = (radar?.status || "").trim().toLowerCase() === "draft";
   const isOwner =
     !!currentUserId && Array.isArray(radar?.ownerIds)
       ? radar!.ownerIds!.includes(currentUserId)
       : false;
+  const radarOwners = useMemo(
+    () =>
+      Array.isArray(radar?.ownerIds)
+        ? radar.ownerIds
+            .map((id) => ownerOptions.find((o) => o.id === id))
+            .filter((o): o is { id: string; name: string; email?: string } => !!o)
+            .map((o) => ({ name: o.name, email: o.email }))
+        : [],
+    [radar?.ownerIds, ownerOptions]
+  );
   const visibleRadars = useMemo(
     () =>
       radars.filter((r) => {
@@ -258,6 +337,8 @@ export function RadarPage({
           radarName={radar?.name}
           radarStatus={radar?.status}
           onEditRadar={isOwner ? () => setIsEditOpen(true) : undefined}
+          radarDescription={radar?.description}
+          radarOwners={radarOwners}
           clusterType={clusterType}
           universe={radar?.type === "Travel" ? "Travel" : "General"}
         />
@@ -300,6 +381,7 @@ export function RadarPage({
           onClose={handleModalClose}
           onNavigate={handleNavigateTechnology}
           signals={[]}
+          accentColor={activeTechnologyAccentColor}
         />
       )}
       {editMessage && (

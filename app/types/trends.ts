@@ -7,6 +7,8 @@ export interface Trend {
   id: string;
   name: string;
   description: string;
+  /** Short one-line descriptor from Airtable "Tagline" column. */
+  tagline?: string;
   imageUrl: string;
   /** Icon URL from Airtable "Icon" field (or ImageUrl fallback). */
   iconUrl?: string;

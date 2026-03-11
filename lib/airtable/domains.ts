@@ -744,11 +744,22 @@ export async function getDomainTrends(domainId: string): Promise<{ trends: Trend
         }
       }
 
+      // Icon handling consistent with Trends & Radars helpers
+      const iconField = getField(record, 'Icon');
+      const iconUrl =
+        typeof iconField === "string"
+          ? iconField
+          : Array.isArray(iconField) && iconField[0]?.url
+            ? (iconField[0] as { url?: string }).url
+            : undefined;
+
       return {
         id: record.id,
         name: String(getField(record, 'Name') ?? ''),
         description: String(getField(record, 'Description') ?? ''),
+        tagline: String(getField(record, 'Tagline') ?? ''),
         imageUrl: String(getField(record, 'ImageUrl') ?? ''),
+        iconUrl: iconUrl || String(getField(record, 'ImageUrl') ?? '') || undefined,
         image: (getField(record, 'Image') as Trend['image']) ?? [],
         clusterId,
         taxonomyId,

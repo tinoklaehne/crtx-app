@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
       status: typeof body.status === "string" ? body.status : "Submitted",
     });
 
-    if (!result.ok) return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+    if (!result.ok) {
+      return NextResponse.json({ error: "Failed to save assessments" }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Error in /api/trend-scoring/assessments POST:", error);

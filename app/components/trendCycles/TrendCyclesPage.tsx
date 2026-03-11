@@ -26,10 +26,17 @@ import {
 } from "@/components/ui/select";
 import type { Trend } from "@/app/types/trends";
 import type { User } from "@/app/types/users";
-import type { TrendCycle, TrendCycleItem, TrendScoringMetric } from "@/app/types/trendCycles";
-import type { TrendAssessment } from "@/app/types/trendCycles";
+import type {
+  TrendCycle,
+  TrendCycleItem,
+  TrendScoringMetric,
+  TrendCycleStatus,
+  TrendAssessment,
+} from "@/app/types/trendCycles";
 import type { Radar } from "@/app/types/radars";
 import { TechnologyDetailModal } from "@/app/components/domains/TechnologyDetailModal";
+import { CreateRadarModal } from "@/app/components/radar/CreateRadarModal";
+import type { RadarTrendOption } from "@/app/radars/page";
 
 function pct(n: number): string {
   if (!Number.isFinite(n)) return "0%";
@@ -63,11 +70,24 @@ export function TrendCyclesPage({
   const [detailOpen, setDetailOpen] = useState(false);
   const [startDateInput, setStartDateInput] = useState("");
   const [endDateInput, setEndDateInput] = useState("");
+  const [createRadarOpen, setCreateRadarOpen] = useState(false);
+  const [createRadarMessage, setCreateRadarMessage] = useState<string | null>(null);
 
   const trendsById = useMemo(() => new Map(allTrends.map((t) => [t.id, t])), [allTrends]);
   const usersById = useMemo(() => new Map(allUsers.map((u) => [u.id, u])), [allUsers]);
   const metricsById = useMemo(() => new Map(allMetrics.map((m) => [m.id, m])), [allMetrics]);
   const radarsById = useMemo(() => new Map(allRadars.map((r) => [r.id, r])), [allRadars]);
+
+  const radarTrendOptions: RadarTrendOption[] = useMemo(
+    () =>
+      allTrends.map((t) => ({
+        id: t.id,
+        name: t.name,
+        scale: "Micro" as const,
+        meta: t.domain ?? undefined,
+      })),
+    [allTrends]
+  );
 
   const selectedCycle = useMemo(
     () => cycles.find((c) => c.id === selectedCycleId) ?? null,
@@ -262,6 +282,26 @@ export function TrendCyclesPage({
     }
   }
 
+  async function updateCycleStatus(newStatus: TrendCycleStatus) {
+    if (!selectedCycleId) return;
+    try {
+      const res = await fetch(`/api/trend-cycles/${selectedCycleId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.cycle) {
+        setCycles((prev) =>
+          prev.map((c) => (c.id === selectedCycleId ? (data.cycle as TrendCycle) : c))
+        );
+      }
+    } catch {
+      // ignore for now; status will stay unchanged in UI
+    }
+  }
+
   async function addTrend(trendId: string) {
     if (!selectedCycleId) return;
     const res = await fetch(`/api/trend-cycles/${selectedCycleId}/items`, {
@@ -278,17 +318,34 @@ export function TrendCyclesPage({
 
   async function updateItem(itemId: string, updates: Partial<Pick<TrendCycleItem, "stage" | "notes">>) {
     if (!selectedCycleId) return;
-    const res = await fetch(`/api/trend-cycles/${selectedCycleId}/items`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ itemId, ...updates }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) throw new Error((data && data.error) || "Failed to update item");
-    const updated = data?.item as TrendCycleItem | undefined;
-    if (updated) setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)));
+    try {
+      const res = await fetch(`/api/trend-cycles/${selectedCycleId}/items`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ itemId, ...updates }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        // Surface a non-crashing error; keep previous value in UI.
+        console.error("Failed to update trend cycle item", data);
+        setItemsError((data && data.error) || "Failed to update item");
+        return;
+      }
+      const updated = data?.item as TrendCycleItem | undefined;
+      if (updated) {
+        setItems((prev) => prev.map((it) => (it.id === itemId ? updated : it)));
+      }
+    } catch (e: any) {
+      console.error("Error updating trend cycle item", e);
+      setItemsError(e?.message ?? "Failed to update item");
+    }
   }
+
+  const shortlistedTrendIds = useMemo(
+    () => items.filter((it) => it.stage === "Shortlisted").map((it) => it.trendId),
+    [items]
+  );
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -367,9 +424,26 @@ export function TrendCyclesPage({
                 <div className="flex items-start justify-between gap-6">
                 <div className="min-w-0">
                   <h1 className="text-2xl font-bold">{selectedCycle.name}</h1>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Status: <span className="font-medium text-foreground">{selectedCycle.status}</span>
-                    {selectedCycle.description ? ` · ${selectedCycle.description}` : ""}
+                  <div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-center gap-2">
+                    <span>Status:</span>
+                    <Select
+                      value={selectedCycle.status}
+                      onValueChange={(value) => updateCycleStatus(value as TrendCycleStatus)}
+                    >
+                      <SelectTrigger className="h-7 w-40 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Draft">Draft</SelectItem>
+                        <SelectItem value="Open">Open</SelectItem>
+                        <SelectItem value="Scoring">Scoring</SelectItem>
+                        <SelectItem value="Closed">Closed</SelectItem>
+                        <SelectItem value="Archived">Archived</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {selectedCycle.description ? (
+                      <span className="truncate">· {selectedCycle.description}</span>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-3 mt-3 text-xs text-muted-foreground">
                     <div className="flex items-center gap-2">
@@ -418,23 +492,23 @@ export function TrendCyclesPage({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <AttachRadarDialog
+                  <EditCycleDialog
                     cycle={selectedCycle}
-                    allRadars={allRadars}
-                    onUpdate={async (radarIds) => {
-                      if (!selectedCycleId) return;
-                      const res = await fetch(`/api/trend-cycles/${selectedCycleId}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        credentials: "include",
-                        body: JSON.stringify({ radarIds }),
-                      });
-                      const data = await res.json().catch(() => null);
-                      if (res.ok && data?.cycle) {
-                        setCycles((prev) => prev.map((c) => (c.id === selectedCycleId ? (data.cycle as TrendCycle) : c)));
-                      }
+                    allUsers={allUsers}
+                    allMetrics={allMetrics}
+                    onUpdated={(updated) => {
+                      setCycles((prev) =>
+                        prev.map((c) => (c.id === updated.id ? updated : c))
+                      );
                     }}
                   />
+                  <Button
+                    variant="outline"
+                    disabled={shortlistedTrendIds.length === 0}
+                    onClick={() => setCreateRadarOpen(true)}
+                  >
+                    Create radar from shortlist
+                  </Button>
                 </div>
               </div>
 
@@ -518,19 +592,26 @@ export function TrendCyclesPage({
                                   )}
                                 </td>
                                 <td className="p-3">
-                                  <Select
-                                    value={it.stage}
-                                    onValueChange={(v) => updateItem(it.id, { stage: v as any })}
+                                  <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
                                   >
-                                    <SelectTrigger>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="Long List">Long List</SelectItem>
-                                      <SelectItem value="Shortlisted">Shortlisted</SelectItem>
-                                      <SelectItem value="Excluded">Excluded</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                    <Select
+                                      value={it.stage}
+                                      onValueChange={(v) =>
+                                        updateItem(it.id, { stage: v as any })
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="Long List">Long List</SelectItem>
+                                        <SelectItem value="Shortlisted">Shortlisted</SelectItem>
+                                        <SelectItem value="Excluded">Excluded</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -614,6 +695,30 @@ export function TrendCyclesPage({
           signals={[]}
         />
       )}
+      <CreateRadarModal
+        isOpen={createRadarOpen}
+        onClose={() => setCreateRadarOpen(false)}
+        trendOptions={radarTrendOptions}
+        initialValues={{
+          name: selectedCycle ? `${selectedCycle.name} – Shortlist Radar` : "",
+          description: selectedCycle?.description,
+          trendIds: shortlistedTrendIds,
+        }}
+        onSubmit={async ({ name, description, trendIds }) => {
+          const res = await fetch("/api/radars/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ name, description, trendIds }),
+          });
+          if (!res.ok) {
+            setCreateRadarMessage("Failed to create radar draft.");
+            return false;
+          }
+          setCreateRadarMessage("Radar draft created successfully.");
+          return true;
+        }}
+      />
     </div>
   );
 }
@@ -990,36 +1095,96 @@ function ManagePanelDialog({
     </Dialog>
   );
 }
-
-function AttachRadarDialog({
+function EditCycleDialog({
   cycle,
-  allRadars,
-  onUpdate,
+  allUsers,
+  allMetrics,
+  onUpdated,
 }: {
   cycle: TrendCycle;
-  allRadars: Radar[];
-  onUpdate: (radarIds: string[]) => Promise<void>;
+  allUsers: User[];
+  allMetrics: TrendScoringMetric[];
+  onUpdated: (cycle: TrendCycle) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set(cycle.radarIds ?? []));
+  const [name, setName] = useState(cycle.name);
+  const [code, setCode] = useState(cycle.code ?? "");
+  const [description, setDescription] = useState(cycle.description ?? "");
+  const [status, setStatus] = useState<TrendCycleStatus>(cycle.status);
+  const [startDate, setStartDate] = useState(cycle.startDate?.slice(0, 10) ?? "");
+  const [endDate, setEndDate] = useState(cycle.endDate?.slice(0, 10) ?? "");
+  const [expertQuery, setExpertQuery] = useState("");
+  const [metricQuery, setMetricQuery] = useState("");
+  const [selectedExperts, setSelectedExperts] = useState<Set<string>>(
+    new Set(cycle.expertUserIds ?? [])
+  );
+  const [selectedMetrics, setSelectedMetrics] = useState<Set<string>>(
+    new Set(cycle.metricIds ?? [])
+  );
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setSelected(new Set(cycle.radarIds ?? []));
-  }, [cycle.id, cycle.radarIds]);
+    if (!open) return;
+    setName(cycle.name);
+    setCode(cycle.code ?? "");
+    setDescription(cycle.description ?? "");
+    setStatus(cycle.status);
+    setStartDate(cycle.startDate?.slice(0, 10) ?? "");
+    setEndDate(cycle.endDate?.slice(0, 10) ?? "");
+    setSelectedExperts(new Set(cycle.expertUserIds ?? []));
+    setSelectedMetrics(new Set(cycle.metricIds ?? []));
+    setExpertQuery("");
+    setMetricQuery("");
+    setError(null);
+  }, [open, cycle]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return allRadars.slice(0, 200);
-    return allRadars.filter((r) => r.name.toLowerCase().includes(q)).slice(0, 200);
-  }, [allRadars, query]);
+  const filteredExperts = useMemo(() => {
+    const q = expertQuery.trim().toLowerCase();
+    if (!q) return allUsers;
+    return allUsers.filter((u) => (u.name + " " + u.email).toLowerCase().includes(q));
+  }, [allUsers, expertQuery]);
+
+  const filteredMetrics = useMemo(() => {
+    const q = metricQuery.trim().toLowerCase();
+    if (!q) return allMetrics;
+    return allMetrics.filter((m) =>
+      (m.name + " " + (m.description ?? "")).toLowerCase().includes(q)
+    );
+  }, [allMetrics, metricQuery]);
 
   async function save() {
+    if (!name.trim()) {
+      setError("Name is required.");
+      return;
+    }
     setSaving(true);
+    setError(null);
     try {
-      await onUpdate(Array.from(selected));
+      const res = await fetch(`/api/trend-cycles/${cycle.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name.trim(),
+          code: code.trim() || undefined,
+          description: description.trim() || undefined,
+          status,
+          expertUserIds: Array.from(selectedExperts),
+          metricIds: Array.from(selectedMetrics),
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.cycle) {
+        setError(data?.error || "Failed to update cycle.");
+        return;
+      }
+      onUpdated(data.cycle as TrendCycle);
       setOpen(false);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to update cycle.");
     } finally {
       setSaving(false);
     }
@@ -1028,49 +1193,158 @@ function AttachRadarDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Link radars</Button>
+        <Button variant="outline" size="sm">
+          Edit cycle
+        </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Link radars to cycle</DialogTitle>
-          <DialogDescription>
-            A cycle can feed multiple radars. Linking helps trace where radar items were sourced from.
-          </DialogDescription>
+          <DialogTitle>Edit trend cycle</DialogTitle>
         </DialogHeader>
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search radars…" />
-        <div className="max-h-80 overflow-auto border rounded-md p-3 space-y-2">
-          {filtered.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No matching radars.</div>
-          ) : (
-            filtered.map((r) => {
-              const checked = selected.has(r.id);
-              return (
-                <label key={r.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => {
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(r.id)) next.delete(r.id);
-                        else next.add(r.id);
-                        return next;
-                      });
-                    }}
-                  />
-                  <span className="truncate">{r.name}</span>
-                  {r.type ? <Badge variant="outline">{r.type}</Badge> : null}
-                </label>
-              );
-            })
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Name</div>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Cycle name"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Code (optional)</div>
+              <Input
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. Q2-2026"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Description (optional)</div>
+              <Input
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Visible to experts"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Status</div>
+              <Select value={status} onValueChange={(v) => setStatus(v as TrendCycleStatus)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Draft">Draft</SelectItem>
+                  <SelectItem value="Open">Open</SelectItem>
+                  <SelectItem value="Scoring">Scoring</SelectItem>
+                  <SelectItem value="Closed">Closed</SelectItem>
+                  <SelectItem value="Archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Start date (optional)</div>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-medium">End date (optional)</div>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="border rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium">Experts</div>
+                <Badge variant="secondary">{selectedExperts.size}</Badge>
+              </div>
+              <Input
+                value={expertQuery}
+                onChange={(e) => setExpertQuery(e.target.value)}
+                placeholder="Search experts…"
+              />
+              <div className="mt-2 max-h-44 overflow-auto space-y-1">
+                {filteredExperts.map((u) => {
+                  const checked = selectedExperts.has(u.id);
+                  return (
+                    <label
+                      key={u.id}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedExperts((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(u.id)) next.delete(u.id);
+                            else next.add(u.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="truncate">{u.name}</span>
+                      <span className="text-xs text-muted-foreground truncate">
+                        {u.email}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="border rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium">Metrics</div>
+                <Badge variant="secondary">{selectedMetrics.size}</Badge>
+              </div>
+              <Input
+                value={metricQuery}
+                onChange={(e) => setMetricQuery(e.target.value)}
+                placeholder="Search metrics…"
+              />
+              <div className="mt-2 max-h-44 overflow-auto space-y-1">
+                {filteredMetrics.map((m) => {
+                  const checked = selectedMetrics.has(m.id);
+                  return (
+                    <label
+                      key={m.id}
+                      className="flex items-center gap-2 text-sm cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setSelectedMetrics((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(m.id)) next.delete(m.id);
+                            else next.add(m.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <span className="truncate">{m.name}</span>
+                      {m.isDefault ? <Badge variant="outline">Default</Badge> : null}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
+        {error ? <div className="text-sm text-destructive">{error}</div> : null}
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
             Cancel
           </Button>
           <Button onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : "Save changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

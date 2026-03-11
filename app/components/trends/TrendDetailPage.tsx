@@ -200,6 +200,11 @@ export function TrendDetailPage({
                   {trend.domain}
                 </div>
                 <h1 className="text-3xl font-bold leading-tight">{trend.name}</h1>
+                {trend.tagline && (
+                  <p className="text-sm text-muted-foreground">
+                    {trend.tagline}
+                  </p>
+                )}
               </div>
             </div>
 

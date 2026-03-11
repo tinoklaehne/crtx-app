@@ -100,9 +100,9 @@ export function RadarsSidepanel({
                       </span>
                     </div>
                   )}
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="font-medium text-sm flex items-center gap-1.5">
-                      <span>{radar.name}</span>
+                      <span className="truncate">{radar.name}</span>
                       {(radar.status || "").trim().toLowerCase() === "draft" && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                           Draft

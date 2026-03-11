@@ -376,11 +376,20 @@ function recordToTrend(
         ? aliasField.split(',').map((a) => a.trim()).filter(Boolean)
         : [];
   }
+  const iconField = getField(record, 'Icon');
+  const iconUrl =
+    typeof iconField === 'string'
+      ? iconField
+      : Array.isArray(iconField) && iconField[0]?.url
+        ? (iconField[0] as { url?: string }).url
+        : undefined;
   return {
     id: record.id,
     name: getField(record, 'Name') || '',
     description: getField(record, 'Description') || '',
+    tagline: getField(record, 'Tagline') || '',
     imageUrl: getField(record, 'ImageUrl') || '',
+    iconUrl: iconUrl || getField(record, 'ImageUrl') || undefined,
     image: getField(record, 'Image') || [],
     clusterId,
     taxonomyId: Array.isArray(taxonomyField) && taxonomyField.length > 0 ? taxonomyField[0] : undefined,

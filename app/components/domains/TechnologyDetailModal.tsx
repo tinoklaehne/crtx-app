@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, CircleOff, SlidersHorizontal, Trash2 } from "lucide-react";
+import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { HelpCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +43,7 @@ interface TechnologyDetailModalProps {
     actorIds?: string[];
     actors?: string[];
   }>;
+  accentColor?: string;
 }
 
 export function TechnologyDetailModal({
@@ -52,6 +54,7 @@ export function TechnologyDetailModal({
   onClose,
   onNavigate,
   signals = [],
+  accentColor,
 }: TechnologyDetailModalProps) {
   const [expandedSections, setExpandedSections] = useState<{
     horizon: boolean;
@@ -80,7 +83,15 @@ export function TechnologyDetailModal({
 
   if (!technology) return null;
 
-  const clusterColor = cluster?.colorCode || "#00ff80";
+  const resolvedCluster =
+    cluster ||
+    clusters.find((c) => c.id === technology.clusterId) ||
+    clusters.find((c) => c.domain === technology.domain);
+
+  const clusterColor =
+    (accentColor && accentColor.trim()) ||
+    (resolvedCluster?.colorCode && resolvedCluster.colorCode.trim()) ||
+    "#888888";
   
   // Check if reasoning data exists
   const hasHorizonReasoning = technology.trendHorizonReasoning && technology.trendHorizonReasoning.trim().length > 0;
@@ -150,7 +161,7 @@ export function TechnologyDetailModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0 bg-background/95 backdrop-blur-sm border-2 [&>button]:hidden">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-background/95 backdrop-blur-sm border-2 [&>button]:hidden">
         <DialogHeader className="sr-only">
           <DialogTitle>{technology.name}</DialogTitle>
         </DialogHeader>
@@ -206,9 +217,33 @@ export function TechnologyDetailModal({
                 <div className="text-xs text-muted-foreground uppercase tracking-wider">
                   {technology.domain}
                 </div>
-                <h2 className="text-3xl font-bold leading-tight">
-                  {technology.name}
-                </h2>
+                <div className="flex items-center gap-3">
+                  {(technology.iconUrl ?? technology.imageUrl) ? (
+                    <Image
+                      src={technology.iconUrl ?? technology.imageUrl}
+                      alt={technology.name}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 flex-shrink-0 object-contain invert dark:invert-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                      <span
+                        className="text-lg font-semibold text-muted-foreground"
+                      >
+                        {technology.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <h2 className="text-3xl font-bold leading-tight">
+                    {technology.name}
+                  </h2>
+                </div>
+                {technology.tagline && (
+                  <p className="text-sm text-muted-foreground">
+                    {technology.tagline}
+                  </p>
+                )}
               </div>
 
               {/* Description */}
@@ -237,239 +272,231 @@ export function TechnologyDetailModal({
                 </div>
               )}
 
-              {/* Metrics Section - Two Column Layout */}
+              {/* Metrics Section - match Trend app card layout */}
               <div className="pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column */}
-                  <div className="space-y-0">
-                    {/* Trend Horizon */}
-                    <div className="space-y-2 pb-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Trend Horizon</label>
-                        <div className="flex items-center gap-2">
-                          {hasHorizonReasoning && (
-                            <button
-                              onClick={() => toggleSection('horizon')}
-                              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              {expandedSections.horizon ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          )}
-                          <div className="[&_div.flex-1]:hidden">
-                            <TrendHorizonTooltip
-                              currentHorizon={technology.trendHorizon}
-                              color={clusterColor}
-                              compact={true}
-                              reasoning={technology.trendHorizonReasoning}
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {/* Trend Horizon */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Trend Horizon</CardTitle>
+                      <div className="flex items-center gap-2">
+                        {hasHorizonReasoning && (
+                          <button
+                            onClick={() => toggleSection("horizon")}
+                            className="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {expandedSections.horizon ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                        <div className="[&_div.flex-1]:hidden">
+                          <TrendHorizonTooltip
+                            currentHorizon={technology.trendHorizon}
+                            color={clusterColor}
+                            compact={true}
+                            reasoning={technology.trendHorizonReasoning}
+                          />
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex gap-[2px]">
+                        {[...Array(5)].map((_, i) => {
+                          const horizonValue =
+                            { "0-2": 5, "2-5": 4, "5-10": 3, "10-15": 2, "15+": 1 }[
+                              technology.trendHorizon
+                            ] || 3;
+                          return (
+                            <div
+                              key={i}
+                              className="h-2 flex-1"
+                              style={{
+                                backgroundColor:
+                                  i < horizonValue ? clusterColor : "rgba(128, 128, 128, 0.2)",
+                              }}
                             />
-                          </div>
-                        </div>
+                          );
+                        })}
                       </div>
-                      <div className="space-y-1">
-                        {/* Segmented progress bar for Trend Horizon (5 segments) */}
-                        <div className="flex gap-[2px]">
-                          {[...Array(5)].map((_, i) => {
-                            const horizonValue = {
-                              "0-2": 5,
-                              "2-5": 4,
-                              "5-10": 3,
-                              "10-15": 2,
-                              "15+": 1
-                            }[technology.trendHorizon] || 3;
-                            return (
-                              <div
-                                key={i}
-                                className="h-2 flex-1"
-                                style={{
-                                  backgroundColor: i < horizonValue ? clusterColor : 'rgba(128, 128, 128, 0.2)',
-                                }}
-                              />
-                            );
-                          })}
-                        </div>
-                        <p className="text-sm">
-                          <span style={{ color: clusterColor }}>{technology.trendHorizon} years</span>
-                          {" "}
-                          <span className="text-muted-foreground">
-                            {horizonLabel.split(' ').slice(1).join(' ')}
-                          </span>
-                        </p>
-                      </div>
+                      <p className="text-sm">
+                        <span style={{ color: clusterColor }}>
+                          {technology.trendHorizon} years
+                        </span>{" "}
+                        <span className="text-muted-foreground">
+                          {horizonLabel.split(" ").slice(1).join(" ")}
+                        </span>
+                      </p>
                       {expandedSections.horizon && hasHorizonReasoning && (
-                        <div className="mt-3 p-3 bg-secondary/30 rounded-md">
+                        <div className="mt-3 rounded-md bg-secondary/30 p-3">
                           <p className="text-sm text-muted-foreground">
                             {technology.trendHorizonReasoning}
                           </p>
                         </div>
                       )}
-                    </div>
+                    </CardContent>
+                  </Card>
 
-                    <Separator className="my-4" />
-
-                    {/* Technology Readiness Level */}
-                    <div className="space-y-2 pb-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Technology Readiness Level</label>
-                        <div className="flex items-center gap-2">
-                          {hasTrlReasoning && (
-                            <button
-                              onClick={() => toggleSection('trl')}
-                              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              {expandedSections.trl ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          )}
-                          <div className="[&_div.flex-1]:hidden">
-                            <TRLTooltip
-                              currentLevel={technology.technologyReadinessLevel}
-                              color={clusterColor}
-                              compact={true}
-                              reasoning={technology.trlReasoning}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        {/* Segmented progress bar for TRL (9 segments) */}
-                        <div className="flex gap-[2px]">
-                          {[...Array(9)].map((_, i) => (
-                            <div
-                              key={i}
-                              className="h-2 flex-1"
-                              style={{
-                                backgroundColor: i < technology.technologyReadinessLevel ? clusterColor : 'rgba(128, 128, 128, 0.2)',
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <p className="text-sm">
-                          <span style={{ color: clusterColor }}>
-                            Level {technology.technologyReadinessLevel}: {
-                              technology.technologyReadinessLevel >= 8 
-                                ? "Ready for Implementation"
-                                : technology.technologyReadinessLevel >= 7
-                                ? "Prototype Demonstration"
-                                : technology.technologyReadinessLevel >= 6
-                                ? "Prototype Testing"
-                                : technology.technologyReadinessLevel >= 4
-                                ? "Lab Environment"
-                                : "Proof-of-concept"
-                            }
-                          </span>
-                        </p>
-                      </div>
-                      {expandedSections.trl && hasTrlReasoning && (
-                        <div className="mt-3 p-3 bg-secondary/30 rounded-md">
-                          <p className="text-sm text-muted-foreground">
-                            {technology.trlReasoning}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Column */}
-                  <div className="space-y-0">
-                    {/* Strategic Action */}
-                    <div className="space-y-2 pb-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Strategic Action</label>
-                        <div className="flex items-center gap-2">
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </div>
+                  {/* Strategic Action */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Strategic Action
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
                       <div className="flex items-center gap-3">
                         <Badge
                           variant="outline"
                           className="text-xs"
-                          style={{
-                            borderColor: clusterColor,
-                            color: clusterColor,
-                          }}
+                          style={{ borderColor: clusterColor, color: clusterColor }}
                         >
                           Act
                         </Badge>
                         <span className="text-sm text-muted-foreground">Score: 7</span>
                       </div>
-                    </div>
+                    </CardContent>
+                  </Card>
 
-                    <Separator className="my-4" />
-
-                    {/* Business Readiness Level */}
-                    <div className="space-y-2 pb-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium">Business Readiness Level</label>
-                        <div className="flex items-center gap-2">
-                          {hasBrlReasoning && (
-                            <button
-                              onClick={() => toggleSection('brl')}
-                              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              {expandedSections.brl ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
-                            </button>
-                          )}
-                          <div className="[&_div.flex-1]:hidden">
-                            <BRLTooltip
-                              currentLevel={technology.businessReadinessLevel}
-                              color={clusterColor}
-                              compact={true}
-                              reasoning={technology.brlReasoning}
-                            />
-                          </div>
+                  {/* Technology Readiness Level */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Technology Readiness Level
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        {hasTrlReasoning && (
+                          <button
+                            onClick={() => toggleSection("trl")}
+                            className="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {expandedSections.trl ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                        <div className="[&_div.flex-1]:hidden">
+                          <TRLTooltip
+                            currentLevel={technology.technologyReadinessLevel}
+                            color={clusterColor}
+                            compact={true}
+                            reasoning={technology.trlReasoning}
+                          />
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        {/* Segmented progress bar for BRL (9 segments) */}
-                        <div className="flex gap-[2px]">
-                          {[...Array(9)].map((_, i) => (
-                            <div
-                              key={i}
-                              className="h-2 flex-1"
-                              style={{
-                                backgroundColor: i < technology.businessReadinessLevel ? clusterColor : 'rgba(128, 128, 128, 0.2)',
-                              }}
-                            />
-                          ))}
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex gap-[2px]">
+                        {[...Array(9)].map((_, i) => (
+                          <div
+                            key={i}
+                            className="h-2 flex-1"
+                            style={{
+                              backgroundColor:
+                                i < technology.technologyReadinessLevel
+                                  ? clusterColor
+                                  : "rgba(128, 128, 128, 0.2)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-sm">
+                        <span style={{ color: clusterColor }}>
+                          Level {technology.technologyReadinessLevel}:{" "}
+                          {technology.technologyReadinessLevel >= 8
+                            ? "Ready for Implementation"
+                            : technology.technologyReadinessLevel >= 7
+                              ? "Prototype Demonstration"
+                              : technology.technologyReadinessLevel >= 6
+                                ? "Prototype Testing"
+                                : technology.technologyReadinessLevel >= 4
+                                  ? "Lab Environment"
+                                  : "Proof-of-concept"}
+                        </span>
+                      </p>
+                      {expandedSections.trl && hasTrlReasoning && (
+                        <div className="mt-3 rounded-md bg-secondary/30 p-3">
+                          <p className="text-sm text-muted-foreground">
+                            {technology.trlReasoning}
+                          </p>
                         </div>
-                        <p className="text-sm">
-                          <span style={{ color: clusterColor }}>
-                            Level {technology.businessReadinessLevel}: {
-                              technology.businessReadinessLevel >= 8 
-                                ? "Market Ready"
-                                : technology.businessReadinessLevel >= 7
-                                ? "Initial Market Acceptance"
-                                : technology.businessReadinessLevel >= 6
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Business Readiness Level */}
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Business Readiness Level
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        {hasBrlReasoning && (
+                          <button
+                            onClick={() => toggleSection("brl")}
+                            className="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {expandedSections.brl ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </button>
+                        )}
+                        <div className="[&_div.flex-1]:hidden">
+                          <BRLTooltip
+                            currentLevel={technology.businessReadinessLevel}
+                            color={clusterColor}
+                            compact={true}
+                            reasoning={technology.brlReasoning}
+                          />
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex gap-[2px]">
+                        {[...Array(9)].map((_, i) => (
+                          <div
+                            key={i}
+                            className="h-2 flex-1"
+                            style={{
+                              backgroundColor:
+                                i < technology.businessReadinessLevel
+                                  ? clusterColor
+                                  : "rgba(128, 128, 128, 0.2)",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-sm">
+                        <span style={{ color: clusterColor }}>
+                          Level {technology.businessReadinessLevel}:{" "}
+                          {technology.businessReadinessLevel >= 8
+                            ? "Market Ready"
+                            : technology.businessReadinessLevel >= 7
+                              ? "Initial Market Acceptance"
+                              : technology.businessReadinessLevel >= 6
                                 ? "Customer Validation"
                                 : technology.businessReadinessLevel >= 5
-                                ? "Assumptions Testing"
-                                : technology.businessReadinessLevel >= 4
-                                ? "Business Case"
-                                : "Concept Validation"
-                            }
-                          </span>
-                        </p>
-                      </div>
+                                  ? "Assumptions Testing"
+                                  : technology.businessReadinessLevel >= 4
+                                    ? "Business Case"
+                                    : "Concept Validation"}
+                        </span>
+                      </p>
                       {expandedSections.brl && hasBrlReasoning && (
-                        <div className="mt-3 p-3 bg-secondary/30 rounded-md">
+                        <div className="mt-3 rounded-md bg-secondary/30 p-3">
                           <p className="text-sm text-muted-foreground">
                             {technology.brlReasoning}
                           </p>
                         </div>
                       )}
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
 

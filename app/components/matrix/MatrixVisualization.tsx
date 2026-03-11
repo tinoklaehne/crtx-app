@@ -3,11 +3,10 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getRingLabel } from "../radar/utils/calculations";
+import { getRingLabel, generateClusterPalette } from "../radar/utils/calculations";
 import { ViewToggle } from "../ui/view-toggle";
 import { useFilters } from "@/app/contexts/FilterContext";
-import type { Cluster, Trend, Domain } from "@/app/types";
-import { DOMAIN_COLORS } from "@/app/types/domains";
+import type { Cluster, Trend } from "@/app/types";
 import type { NodePositioning } from "@/app/types";
 import type { FilterCategory } from "@/app/components/ui/filter-toggle";
 
@@ -140,6 +139,16 @@ export function MatrixVisualization({
     return matchesDomain && matchesCluster;
   });
 
+  // Derive a per-radar palette for the currently visible clusters/technologies.
+  const clusterKeyForTech = (tech: Trend): string | undefined =>
+    clusterType === "domain" ? tech.domain : tech.clusterId;
+
+  const palette = generateClusterPalette(
+    filteredTechnologies
+      .map(clusterKeyForTech)
+      .filter((key): key is string => !!key && key.trim().length > 0)
+  );
+
   return (
     <div className="relative flex-1 bg-background overflow-hidden">
       <ViewToggle view={view} onChange={onViewChange} />
@@ -250,11 +259,14 @@ export function MatrixVisualization({
 
           {/* Technology nodes */}
           {filteredTechnologies.map(tech => {
-            const cluster = clusters.find((c) => c.id === tech.clusterId);
+            const key = clusterKeyForTech(tech);
+            const cluster = clusters.find((c) =>
+              clusterType === "domain" ? c.domain === tech.domain : c.id === tech.clusterId
+            );
             const color =
-              clusterType === "domain"
-                ? DOMAIN_COLORS[tech.domain as Domain] || "#00ff80"
-                : cluster?.colorCode || "#00ff80";
+              (key ? palette[key] : undefined) ||
+              cluster?.colorCode ||
+              "#888888";
 
             const jitter = jitterValues.current.get(tech.id) || { x: 0, y: 0 };
             

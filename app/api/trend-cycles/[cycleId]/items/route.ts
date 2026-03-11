@@ -64,12 +64,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!body || typeof body.itemId !== "string") {
       return NextResponse.json({ error: "Missing itemId" }, { status: 400 });
     }
-    const updated = await updateTrendCycleItem(body.itemId, {
-      stage: typeof body.stage === "string" ? body.stage : undefined,
-      notes: typeof body.notes === "string" ? body.notes : undefined,
-    });
-    if (!updated) return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
-    return NextResponse.json({ item: updated });
+    try {
+      const updated = await updateTrendCycleItem(body.itemId, {
+        stage: typeof body.stage === "string" ? body.stage : undefined,
+        notes: typeof body.notes === "string" ? body.notes : undefined,
+      });
+      if (!updated) {
+        return NextResponse.json({ error: "Failed to update item" }, { status: 500 });
+      }
+      return NextResponse.json({ item: updated });
+    } catch (updateError: any) {
+      const message =
+        (typeof updateError?.message === "string" && updateError.message) ||
+        "Failed to update item";
+      console.error("Error updating trend cycle item in PATCH route:", updateError);
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   } catch (error) {
     console.error("Error in /api/trend-cycles/items PATCH:", error);
     return NextResponse.json({ error: "Failed to update item" }, { status: 500 });

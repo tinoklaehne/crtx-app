@@ -6,6 +6,7 @@ import { MatrixVisualization } from "@/app/components/matrix/MatrixVisualization
 import { Sidepanel } from "@/app/components/layout/Sidepanel";
 import { TrendsKanbanView } from "./TrendsKanbanView";
 import { TechnologyDetailModal } from "./TechnologyDetailModal";
+import { generateClusterPalette } from "@/app/components/radar/utils/calculations";
 import { useFilters } from "@/app/contexts/FilterContext";
 import type { Trend } from "@/app/types/trends";
 import type { Cluster } from "@/app/types/clusters";
@@ -75,6 +76,74 @@ export function DomainTrendsView({ trends, clusters }: DomainTrendsViewProps) {
     ? clusters.find((c) => c.id === activeTechnology.clusterId)
     : undefined;
 
+  const clusterAccentMaps = useMemo(() => {
+    if (!trends.length || !clusters.length) {
+      return {
+        byClusterId: new Map<string, string>(),
+        byDomain: {} as Record<string, string>,
+      };
+    }
+
+    const validTechnologies = trends.filter((t) => {
+      if (clusterType === "domain") {
+        return !!(t.domain && t.domain.trim());
+      }
+      if (clusterType === "taxonomy") {
+        return !!(t.taxonomyId && t.taxonomyId.trim());
+      }
+      return !!(t.clusterId && t.clusterId.trim());
+    });
+
+    if (clusterType === "domain") {
+      const domains = Array.from(
+        new Set(
+          validTechnologies
+            .map((t) => t.domain)
+            .filter((d): d is string => !!d && d.trim().length > 0)
+        )
+      ).sort();
+      const palette = generateClusterPalette(domains);
+      const byClusterId = new Map<string, string>();
+      clusters.forEach((c) => {
+        const key = c.domain && palette[c.domain] ? c.domain : undefined;
+        if (key) {
+          byClusterId.set(c.id, palette[key]);
+        }
+      });
+      return { byClusterId, byDomain: palette };
+    }
+
+    const activeClusters = clusters
+      .filter((cluster) =>
+        validTechnologies.some((t) =>
+          (clusterType === "taxonomy" ? t.taxonomyId : t.clusterId) === cluster.id
+        )
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    const palette = generateClusterPalette(activeClusters.map((c) => c.id));
+    const byClusterId = new Map<string, string>();
+    clusters.forEach((c) => {
+      if (palette[c.id]) {
+        byClusterId.set(c.id, palette[c.id]);
+      }
+    });
+
+    return { byClusterId, byDomain: {} as Record<string, string> };
+  }, [trends, clusters, clusterType]);
+
+  const activeTechnologyAccentColor = useMemo(() => {
+    if (!activeTechnology) return undefined;
+
+    if (clusterType === "domain") {
+      const domainKey = activeTechnology.domain;
+      return (domainKey && clusterAccentMaps.byDomain[domainKey]) || undefined;
+    }
+
+    const clusterId = activeTechnology.clusterId || activeTechnology.taxonomyId || "";
+    return (clusterId && clusterAccentMaps.byClusterId.get(clusterId)) || undefined;
+  }, [activeTechnology, clusterType, clusterAccentMaps]);
+
   return (
     <>
       <div className="flex h-[800px] border rounded-lg overflow-hidden">
@@ -132,6 +201,7 @@ export function DomainTrendsView({ trends, clusters }: DomainTrendsViewProps) {
           onClose={handleCloseModal}
           onNavigate={handleNavigateTechnology}
           signals={[]} // TODO: Fetch signals for the trend
+          accentColor={activeTechnologyAccentColor}
         />
       )}
     </>

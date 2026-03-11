@@ -29,6 +29,8 @@ interface SidepanelProps {
   radarName?: string;
   radarStatus?: string;
   onEditRadar?: () => void;
+  radarDescription?: string;
+  radarOwners?: { name: string; email?: string }[];
   clusterType?: "parent" | "taxonomy" | "domain";
   universe?: "General" | "Travel";
   showTechnologiesTitle?: boolean;
@@ -49,6 +51,8 @@ export function Sidepanel({
   radarName,
   radarStatus,
   onEditRadar,
+  radarDescription,
+  radarOwners,
   clusterType = "parent",
   universe = "General",
   showTechnologiesTitle = true,
@@ -76,7 +80,7 @@ export function Sidepanel({
   }, [technologies, searchQuery, clusterType, selectedCluster]);
 
   return (
-    <ResizablePanel defaultWidth={420} minWidth={320} maxWidth={640} className="border-r bg-card">
+    <ResizablePanel defaultWidth={500} minWidth={360} maxWidth={720} className="border-r bg-card">
       <ScrollArea className="h-screen">
         {activeView === "home" && (
           <HomeSection />
@@ -101,6 +105,8 @@ export function Sidepanel({
             radarName={radarName}
             radarStatus={radarStatus}
             onEditRadar={onEditRadar}
+            radarDescription={radarDescription}
+            radarOwners={radarOwners}
             clusterType={clusterType}
             showTitle={showTechnologiesTitle}
           />
