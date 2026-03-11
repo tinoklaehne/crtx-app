@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RadarVisualization } from "@/app/components/radar/RadarVisualization";
 import { MatrixVisualization } from "@/app/components/matrix/MatrixVisualization";
 import { Sidepanel } from "@/app/components/layout/Sidepanel";
