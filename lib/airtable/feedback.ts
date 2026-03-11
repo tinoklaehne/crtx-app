@@ -97,12 +97,14 @@ export async function createFeedback(
   const record = Array.isArray(result) ? result[0] : result;
   const id: string = record?.id;
 
+  const { userId, ...rest } = input;
+
   return {
     id,
-    userId: input.userId,
+    userId,
     submittedAt: fields["Submitted At"]!,
     status: "New",
-    ...input,
+    ...rest,
   };
 }
 
