@@ -14,10 +14,12 @@ import {
   TrendingUp,
   Repeat,
   ClipboardCheck,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserProfileModal } from "@/app/components/user/UserProfileModal";
 import type { User } from "@/app/types/users";
+import { FeedbackModal } from "@/app/components/feedback/FeedbackModal";
 
 interface NavbarProps {
   activeView?: string;
@@ -34,6 +36,7 @@ export function Navbar({
   const pathname = usePathname();
   const [profileOpen, setProfileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   
   // Light "heartbeat" to update Last Login based on existing session.
   // Throttled via sessionStorage to at most once per browser session / 24h window.
@@ -117,7 +120,7 @@ export function Navbar({
   return (
     <>
       <nav className="w-20 h-screen bg-background border-r flex flex-col">
-        <Logo />
+      <Logo />
         
         <div className="flex-1 flex flex-col items-center justify-center gap-3">
           {canSeeDomains && (
@@ -178,7 +181,15 @@ export function Navbar({
           )}
         </div>
         
-        <div className="flex flex-col items-center gap-2 py-6">
+        <div className="flex flex-col items-center gap-3 py-6">
+          <Button
+            variant="ghost"
+            className="w-12 h-12 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            aria-label="Feedback and bug reports"
+            onClick={() => setFeedbackOpen(true)}
+          >
+            <MessageCircle className="h-5 w-5" />
+          </Button>
           <Button
             variant="ghost"
             className="w-12 h-12 flex items-center justify-center text-muted-foreground hover:text-foreground"
@@ -191,6 +202,7 @@ export function Navbar({
         </div>
       </nav>
       <UserProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+      <FeedbackModal open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </>
   );
 }
